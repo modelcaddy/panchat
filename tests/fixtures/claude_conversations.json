@@ -1,0 +1,29 @@
+[
+  {
+    "uuid": "c-1",
+    "name": "Vault design",
+    "created_at": "2026-08-01T10:00:00Z",
+    "updated_at": "2026-08-01T11:00:00Z",
+    "project": { "uuid": "p-1", "name": "ModelCaddy" },
+    "chat_messages": [
+      {
+        "uuid": "m-1",
+        "sender": "human",
+        "created_at": "2026-08-01T10:00:00Z",
+        "text": "Should files be the source of truth?",
+        "content": [{ "type": "text", "text": "Should files be the source of truth?" }],
+        "attachments": [{ "id": "a-1", "file_name": "spec.md", "file_type": "text/markdown", "file_size": 2048 }]
+      },
+      {
+        "uuid": "m-2",
+        "sender": "assistant",
+        "created_at": "2026-08-01T10:01:00Z",
+        "content": [
+          { "type": "text", "text": "Yes, with digests kept in the vault." },
+          { "type": "tool_use", "name": "search", "input": { "q": "vault" } },
+          { "type": "citation_block", "citation": "something new we do not model" }
+        ]
+      }
+    ]
+  }
+]

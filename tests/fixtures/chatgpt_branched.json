@@ -1,0 +1,71 @@
+[
+  {
+    "conversation_id": "conv-1",
+    "title": "Auth refactor",
+    "create_time": 1750000000.5,
+    "update_time": 1750000900.0,
+    "current_node": "n4",
+    "mapping": {
+      "root": { "id": "root", "parent": null, "children": ["n0"], "message": null },
+      "n0": {
+        "id": "n0",
+        "parent": "root",
+        "children": ["n1"],
+        "message": {
+          "author": { "role": "system" },
+          "create_time": 1750000000.0,
+          "content": { "content_type": "text", "parts": ["You are helpful."] },
+          "metadata": { "is_visually_hidden_from_conversation": true }
+        }
+      },
+      "n1": {
+        "id": "n1",
+        "parent": "n0",
+        "children": ["n2", "n3"],
+        "message": {
+          "author": { "role": "user" },
+          "create_time": 1750000100.0,
+          "content": { "content_type": "text", "parts": ["How do I rotate tokens?"] }
+        }
+      },
+      "n2": {
+        "id": "n2",
+        "parent": "n1",
+        "children": [],
+        "message": {
+          "author": { "role": "assistant" },
+          "create_time": 1750000200.0,
+          "content": { "content_type": "text", "parts": ["First answer, later regenerated."] },
+          "metadata": { "model_slug": "gpt-4o" }
+        }
+      },
+      "n3": {
+        "id": "n3",
+        "parent": "n1",
+        "children": ["n4"],
+        "message": {
+          "author": { "role": "assistant" },
+          "create_time": 1750000300.0,
+          "content": { "content_type": "text", "parts": ["Second answer, the one kept."] },
+          "metadata": { "model_slug": "gpt-5.2" }
+        }
+      },
+      "n4": {
+        "id": "n4",
+        "parent": "n3",
+        "children": [],
+        "message": {
+          "author": { "role": "user" },
+          "create_time": 1750000400.0,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              "See this diagram:",
+              { "asset_pointer": "file-service://abc", "content_type": "image_asset_pointer", "size_bytes": 4096 }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

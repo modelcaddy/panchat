@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      # Includes tests/schema.rs, which validates the published JSON Schema
+      # against the representation — the schema is checked on every commit,
+      # not just written once.
+      - name: Test
+        run: cargo test --all-features
+
+      - name: CLI smoke
+        run: cargo run --features cli --bin panchat -- tests/fixtures/chatgpt_branched.json --inspect

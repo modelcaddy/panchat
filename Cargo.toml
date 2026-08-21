@@ -1,0 +1,30 @@
+# panchat — pan (all) + chat. N vendor formats in, one representation, three
+# sinks out; the pandoc pivot, applied to AI chat exports.
+[package]
+name = "panchat"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Read AI chat exports from any vendor into one representation, with the losses named."
+repository = "https://github.com/modelcaddy/panchat"
+readme = "README.md"
+keywords = ["chatgpt", "claude", "transcript", "export", "conversation"]
+categories = ["parser-implementations", "data-structures"]
+
+[workspace]
+
+[features]
+default = []
+cli = ["dep:clap"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "serde", "clock"] }
+clap = { version = "4", features = ["derive"], optional = true }
+
+[[bin]]
+name = "panchat"
+path = "src/bin/panchat.rs"
+required-features = ["cli"]

@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modelcaddy.github.io/panchat/schema/chat-v0.1.json",
+  "title": "AI chat interchange document",
+  "description": "One or more AI conversations normalized from a vendor export, with a record of what the export could not represent. Version 0.1 — pre-1.0, the shape may still move.",
+  "type": "object",
+  "required": ["schema", "format_version", "source"],
+  "properties": {
+    "schema": { "type": "string", "format": "uri" },
+    "format_version": { "type": "string", "const": "0.1" },
+    "source": { "$ref": "#/$defs/source" },
+    "conversations": { "type": "array", "items": { "$ref": "#/$defs/conversation" } },
+    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+    "warnings": { "type": "array", "items": { "$ref": "#/$defs/warning" } }
+  },
+  "$comment": "additionalProperties is true by design: consumers MUST preserve keys they do not recognise. Third-party keys should be namespaced, e.g. x-modelcaddy.",
+  "additionalProperties": true,
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["platform"],
+      "properties": {
+        "platform": { "type": "string", "description": "Open string, not an enum — an adapter for an unknown vendor must still be expressible." },
+        "variant": { "type": "string" },
+        "exported_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "conversation": {
+      "type": "object",
+      "required": ["id", "messages"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "project": {
+          "type": "object",
+          "required": ["id"],
+          "properties": { "id": { "type": "string" }, "name": { "type": "string" } },
+          "additionalProperties": true
+        },
+        "url": { "type": "string", "format": "uri" },
+        "messages": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+        "active_path": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Message ids, root-first, forming the branch the vendor marked current. Empty when the export gives no such signal."
+        },
+        "raw": { "description": "Untouched vendor payload for this conversation." }
+      },
+      "additionalProperties": true
+    },
+    "message": {
+      "type": "object",
+      "required": ["id", "role"],
+      "properties": {
+        "id": { "type": "string" },
+        "parent": { "type": "string", "description": "Parent message id. Absent marks a root. These edges carry the branch structure." },
+        "role": { "type": "string", "description": "user | assistant | system | tool, or a vendor-specific value." },
+        "created_at": { "type": "string", "format": "date-time" },
+        "model": { "type": "string", "description": "Per-message, not per-conversation: one thread often spans several models." },
+        "hidden": { "type": "boolean", "default": false },
+        "content": { "type": "array", "items": { "$ref": "#/$defs/content_part" } }
+      },
+      "additionalProperties": true
+    },
+    "content_part": {
+      "type": "object",
+      "required": ["type"],
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "text" },
+            "text": { "type": "string" }
+          },
+          "required": ["type", "text"]
+        },
+        {
+          "properties": {
+            "type": { "const": "attachment" },
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "mime_type": { "type": "string" },
+            "path": { "type": "string", "description": "Path inside the export archive, present only when the bytes shipped with it." },
+            "size_bytes": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["type"]
+        },
+        {
+          "properties": {
+            "type": { "const": "tool_use" },
+            "name": { "type": "string" },
+            "input": {}
+          },
+          "required": ["type"]
+        },
+        {
+          "properties": {
+            "type": { "const": "tool_result" },
+            "name": { "type": "string" },
+            "output": {}
+          },
+          "required": ["type"]
+        },
+        {
+          "properties": {
+            "type": { "const": "unknown" },
+            "kind": { "type": "string" },
+            "raw": {}
+          },
+          "required": ["type", "raw"],
+          "description": "A part shape this version does not model, carried through verbatim rather than replaced with a placeholder."
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string", "description": "project | memory | instruction, or vendor-specific." },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "raw": {}
+      },
+      "additionalProperties": true
+    },
+    "warning": {
+      "type": "object",
+      "required": ["code", "severity"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Stable identifier. New codes are additive; consumers must tolerate codes they do not recognise.",
+          "examples": [
+            "missing_timestamps",
+            "synthesized_id",
+            "unknown_content_part",
+            "attachment_not_included",
+            "branch_pointer_broken",
+            "branch_cycle",
+            "item_skipped",
+            "unhandled_export_section",
+            "no_model_identity"
+          ]
+        },
+        "severity": { "enum": ["info", "lossy", "dropped"] },
+        "conversation_id": { "type": "string" },
+        "message_id": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1, "default": 1 },
+        "detail": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}
