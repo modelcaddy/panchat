@@ -1,6 +1,6 @@
 //! The intermediate representation every adapter produces.
 //!
-//! Design rules this module is bound by (`docs/OPEN_CHAT_INTERCHANGE.md` §5):
+//! Design rules this module is bound by (see SPEC.md, "The extension model"):
 //!
 //! 1. **Tiny required core.** Only `id` and `messages` are required on a
 //!    conversation; only `id` and `role` on a message. Everything a given
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Current schema version emitted by this crate. `0.x` signals that the shape
-/// may still move; see `docs/OPEN_CHAT_INTERCHANGE.md` §5.
+/// may still move; see SPEC.md, "Status and stability".
 pub const FORMAT_VERSION: &str = "0.1";
 
 /// Canonical URL of the JSON Schema for [`FORMAT_VERSION`].

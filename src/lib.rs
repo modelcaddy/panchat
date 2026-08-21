@@ -76,9 +76,9 @@ pub fn detect(files: &[ExportFile]) -> Option<Detection> {
 /// entry point — adapters themselves never touch the disk, which is what keeps
 /// them fixture-testable.
 ///
-/// Reads whole files into memory. Streaming for gigabyte-scale exports is
-/// Phase 2 (`docs/OPEN_CHAT_INTERCHANGE.md` §6.4); until then a very large
-/// `conversations.json` will use memory proportional to its size.
+/// Reads whole files into memory. Streaming for gigabyte-scale exports is not
+/// implemented yet, so a very large `conversations.json` will use memory
+/// proportional to its size.
 pub fn read_path(path: impl AsRef<Path>) -> Result<Vec<ExportFile>, Error> {
     let path = path.as_ref();
     if path.is_file() {
