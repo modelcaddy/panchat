@@ -11,6 +11,8 @@ readme = "README.md"
 keywords = ["chatgpt", "claude", "transcript", "export", "conversation"]
 categories = ["parser-implementations", "data-structures"]
 
+# Its own workspace: the crate is also vendored inside a larger tree, and must
+# not inherit that tree's workspace settings.
 [workspace]
 
 [features]
