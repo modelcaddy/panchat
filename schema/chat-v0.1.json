@@ -21,7 +21,8 @@
       "required": ["platform"],
       "properties": {
         "platform": { "type": "string", "description": "Open string, not an enum — an adapter for an unknown vendor must still be expressible." },
-        "variant": { "type": "string" },
+        "variant": { "type": "string", "description": "Which vendor export shape was recognised, e.g. official_export_v2." },
+        "variant_version": { "type": "integer", "minimum": 1, "description": "Generation of that shape, as the producer numbers it. Comparable: a consumer asks variant_version >= 2 rather than matching strings." },
         "exported_at": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": true
@@ -82,7 +83,7 @@
             "id": { "type": "string" },
             "name": { "type": "string" },
             "mime_type": { "type": "string" },
-            "path": { "type": "string", "description": "Path inside the export archive, present only when the bytes shipped with it." },
+            "path": { "type": "string", "description": "Where the bytes are \u2014 inside the bundle, or relative to the export root the document was produced from. Present only when the bytes shipped." },
             "size_bytes": { "type": "integer", "minimum": 0 }
           },
           "required": ["type"]

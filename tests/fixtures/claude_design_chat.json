@@ -1,0 +1,54 @@
+{
+  "uuid": "design-1",
+  "title": "Chat",
+  "project": { "uuid": "proj-9", "name": "Politis Hub" },
+  "created_at": "2026-08-14T06:36:35.268000+00:00",
+  "updated_at": "2026-08-16T20:41:44.128702+00:00",
+  "messages": [
+    {
+      "uuid": "d0",
+      "role": "user",
+      "created_at": "2026-08-14T06:36:35.268000+00:00",
+      "content": {
+        "id": "d0",
+        "role": "user",
+        "kind": "chat",
+        "content": "Redo the landing page.",
+        "timestamp": "2026-08-14T06:36:35.268Z",
+        "attachments": [
+          { "id": "att-1", "name": "Design System", "type": "design-system", "content": "Use the brand palette." },
+          { "id": "att-2", "name": "screenshot.png", "type": "image" }
+        ]
+      }
+    },
+    {
+      "uuid": "d1",
+      "role": "assistant",
+      "content": {
+        "id": "d1",
+        "role": "assistant",
+        "content": "",
+        "timestamp": "2026-08-14T06:37:10.000Z",
+        "contentBlocks": [
+          { "type": "thinking", "text": "" },
+          { "type": "text", "text": "I'll start by looking at the current state of things." },
+          {
+            "type": "tool_call",
+            "toolCall": {
+              "id": "toolu_1",
+              "type": "edit",
+              "name": "list_files",
+              "input": { "path": "" },
+              "output": "Canvas.dc.html"
+            }
+          },
+          {
+            "type": "error",
+            "message": "chat upstream error: Overloaded",
+            "debugInfo": { "errorType": "overloaded_error" }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+[
+  {
+    "conversation_id": "sh-1",
+    "title": "Voice and files",
+    "create_time": 1750000000.0,
+    "update_time": 1750000300.0,
+    "current_node": "n2",
+    "conversation_template_id": null,
+    "mapping": {
+      "root": { "id": "root", "parent": null, "children": ["n0"], "message": null },
+      "n0": {
+        "id": "n0",
+        "parent": "root",
+        "children": ["n1"],
+        "message": {
+          "author": { "role": "user" },
+          "create_time": 1750000100.0,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "file-service://file-abc123",
+                "size_bytes": 4096,
+                "width": 400,
+                "height": 279
+              },
+              "Here is the diagram and the spreadsheet."
+            ]
+          },
+          "metadata": {
+            "attachments": [
+              { "id": "file-abc123", "name": "diagram.png", "mime_type": "image/png", "size": 4096 },
+              { "id": "file-doc999", "name": "products.csv", "mime_type": "text/csv", "size": 6272133 }
+            ]
+          }
+        }
+      },
+      "n1": {
+        "id": "n1",
+        "parent": "n0",
+        "children": ["n2"],
+        "message": {
+          "author": { "role": "assistant" },
+          "create_time": 1750000200.0,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "audio_transcription",
+                "decoding_id": null,
+                "direction": "out",
+                "text": "The diagram shows the token rotation flow."
+              }
+            ]
+          },
+          "metadata": { "model_slug": "gpt-5.2" }
+        }
+      },
+      "n2": {
+        "id": "n2",
+        "parent": "n1",
+        "children": [],
+        "message": {
+          "author": { "role": "user" },
+          "create_time": 1750000300.0,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "real_time_user_audio_video_asset_pointer",
+                "audio_start_timestamp": 759.02,
+                "frames_asset_pointers": [],
+                "video_container_asset_pointer": null,
+                "audio_asset_pointer": {
+                  "content_type": "audio_asset_pointer",
+                  "asset_pointer": "sediment://file_00000000deadbeef",
+                  "format": "wav",
+                  "size_bytes": 641358
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

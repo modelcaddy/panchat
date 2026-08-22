@@ -101,9 +101,19 @@ pub struct Source {
     /// should treat as the weaker guarantee.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<Method>,
-    /// Which shape was recognised, e.g. `official_export_v1`.
+    /// Which shape was recognised, e.g. `official_export_v2`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variant: Option<String>,
+    /// The generation of that shape, as this project numbers it: 1 for the
+    /// first layout a vendor shipped, 2 for the next, and so on.
+    ///
+    /// `variant` names the shape; this makes it *comparable*, which is what a
+    /// consumer actually needs — "was this export produced by the layout that
+    /// ships attachment bytes?" is `variant_version >= 2`, not string
+    /// matching. Every number is written up in the per-source export log under
+    /// `docs/formats/`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant_version: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exported_at: Option<String>,
 }
@@ -115,8 +125,15 @@ impl Source {
             platform: platform.into(),
             method: Some(Method::Export),
             variant: Some(variant.into()),
+            variant_version: None,
             exported_at: None,
         }
+    }
+
+    /// Record which generation of the vendor's shape this is.
+    pub fn with_variant_version(mut self, version: u32) -> Self {
+        self.variant_version = Some(version);
+        self
     }
 
     /// A live capture — a browser extension reading a rendered page, or a
@@ -126,6 +143,7 @@ impl Source {
             platform: platform.into(),
             method: Some(Method::Capture),
             variant: Some(variant.into()),
+            variant_version: None,
             exported_at: None,
         }
     }

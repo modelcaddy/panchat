@@ -1,0 +1,10 @@
+[
+  {
+    "account_uuid": "acct-1",
+    "conversations_memory": "**Work context**\n\nGeorge runs a lab company.",
+    "memory_files": [
+      { "path": "/areas/podium.md", "content": "- [stated] Political platform scoped to Greece" },
+      { "path": "/profile.md", "content": "- [stated] Based in Greece" }
+    ]
+  }
+]

@@ -24,11 +24,50 @@ fn chatgpt_files() -> Vec<ExportFile> {
     files(&[("conversations.json", CHATGPT)])
 }
 
+const CHATGPT_SHARD_A: &str = include_str!("fixtures/chatgpt_sharded_000.json");
+const CHATGPT_SHARD_B: &str = include_str!("fixtures/chatgpt_sharded_001.json");
+const CHATGPT_MANIFEST: &str = include_str!("fixtures/chatgpt_export_manifest.json");
+const CHATGPT_ASSET_NAMES: &str = include_str!("fixtures/chatgpt_asset_names.json");
+
+/// A large export as ChatGPT ships one now: conversations split across
+/// numbered shards, a manifest naming them, an asset-name map, and the
+/// attachment bytes sitting alongside — referenced, not loaded, exactly as
+/// `read_path` hands them to an adapter.
+fn chatgpt_sharded_files() -> Vec<ExportFile> {
+    let mut out = files(&[
+        ("conversations-000.json", CHATGPT_SHARD_A),
+        ("conversations-001.json", CHATGPT_SHARD_B),
+        ("export_manifest.json", CHATGPT_MANIFEST),
+        ("conversation_asset_file_names.json", CHATGPT_ASSET_NAMES),
+    ]);
+    out.push(ExportFile::reference("file-abc123.dat", 4096));
+    out.push(ExportFile::reference("file-doc999.dat", 6272133));
+    out
+}
+
 fn claude_files() -> Vec<ExportFile> {
     files(&[
         ("conversations.json", CLAUDE_CONVS),
         ("projects.json", CLAUDE_PROJECTS),
         ("memories.json", CLAUDE_MEMORIES),
+    ])
+}
+
+const CLAUDE_PROJECT_DIR: &str = include_str!("fixtures/claude_project_dir.json");
+const CLAUDE_MEMORIES_V2: &str = include_str!("fixtures/claude_memories_v2.json");
+const CLAUDE_DESIGN_CHAT: &str = include_str!("fixtures/claude_design_chat.json");
+
+/// A Claude export as it ships now: side-cars in directories, a second chat
+/// format in `design_chats/`, and a `memories.json` that is one object rather
+/// than a list of memory rows.
+fn claude_directory_files() -> Vec<ExportFile> {
+    files(&[
+        ("conversations.json", CLAUDE_CONVS),
+        ("projects/proj-9.json", CLAUDE_PROJECT_DIR),
+        ("design_chats/design-1.json", CLAUDE_DESIGN_CHAT),
+        ("memories.json", CLAUDE_MEMORIES_V2),
+        ("users.json", r#"[{"uuid":"acct-1","full_name":"George"}]"#),
+        ("login_history.json", r#"{"login_events":[]}"#),
     ])
 }
 
@@ -235,4 +274,407 @@ fn turns_jsonl_emits_one_line_per_message() {
     assert_eq!(lines.len(), 2);
     assert!(lines[0].contains("\"role\":\"user\""));
     assert!(lines[1].contains("\"role\":\"assistant\""));
+}
+
+/// The failure this shape was built to cause: an importer that reads the first
+/// file it recognises keeps one shard and reports no error at all.
+#[test]
+fn chatgpt_sharded_export_reads_every_shard() {
+    let files = chatgpt_sharded_files();
+    let d = panchat::detect(&files).expect("sharded chatgpt detected");
+    assert_eq!(d.platform, "chatgpt");
+    assert_eq!(
+        d.variant, "official_export_v2",
+        "a consumer must be able to tell one file did not hold everything"
+    );
+    assert_eq!(d.variant_version, 2);
+
+    let doc = panchat::normalize(&files).unwrap();
+    let ids: Vec<&str> = doc.conversations.iter().map(|c| c.id.as_str()).collect();
+    assert_eq!(ids, vec!["sh-1", "sh-2"], "shards read in manifest order");
+    assert_eq!(doc.source.variant.as_deref(), Some("official_export_v2"));
+    assert_eq!(doc.source.variant_version, Some(2));
+}
+
+/// A shard the manifest promised but the download does not contain is a hole
+/// in the data, not a smaller export.
+#[test]
+fn chatgpt_reports_a_shard_the_manifest_promised() {
+    let doc = panchat::normalize(&chatgpt_sharded_files()).unwrap();
+    let w = doc
+        .warnings
+        .iter()
+        .find(|w| w.code == WarningCode::UnhandledExportSection)
+        .expect("missing shard reported");
+    assert_eq!(w.severity, Severity::Dropped);
+    assert!(w
+        .detail
+        .as_deref()
+        .unwrap_or_default()
+        .contains("conversations-404.json"));
+}
+
+/// These exports ship the attachment bytes. Reporting them missing anyway —
+/// or losing the name the user uploaded them under — is the lie this adapter
+/// exists to avoid.
+#[test]
+fn chatgpt_resolves_attachments_whose_bytes_shipped() {
+    let doc = panchat::normalize(&chatgpt_sharded_files()).unwrap();
+    let c = &doc.conversations[0];
+    let n0 = c.messages.iter().find(|m| m.id == "n0").unwrap();
+
+    let attachments: Vec<(&Option<String>, &Option<String>, &Option<String>)> = n0
+        .content
+        .iter()
+        .filter_map(|p| match p {
+            ContentPart::Attachment { id, name, path, .. } => Some((id, name, path)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        attachments.len(),
+        2,
+        "the image is listed as a part and in metadata; it is one file"
+    );
+
+    let image = attachments
+        .iter()
+        .find(|(id, ..)| id.as_deref() == Some("file-service://file-abc123"))
+        .expect("image kept its vendor pointer");
+    assert_eq!(image.1.as_deref(), Some("diagram.png"));
+    assert_eq!(image.2.as_deref(), Some("file-abc123.dat"));
+
+    // The upload that never appears in the content parts at all.
+    let csv = attachments
+        .iter()
+        .find(|(id, ..)| id.as_deref() == Some("file-doc999"))
+        .expect("metadata-only upload recorded");
+    assert_eq!(csv.1.as_deref(), Some("products.csv"));
+    assert_eq!(csv.2.as_deref(), Some("file-doc999.dat"));
+
+    assert!(
+        !doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::AttachmentNotIncluded
+                && w.message_id.as_deref() == Some("n0")),
+        "bytes that shipped must not be reported as missing"
+    );
+
+    // Voice assets expire and are not in the export; that one is still lossy.
+    let n2 = c.messages.iter().find(|m| m.id == "n2").unwrap();
+    assert!(matches!(
+        n2.content.as_slice(),
+        [ContentPart::Attachment { path: None, .. }]
+    ));
+    assert!(doc
+        .warnings
+        .iter()
+        .any(|w| w.code == WarningCode::AttachmentNotIncluded
+            && w.message_id.as_deref() == Some("n2")));
+}
+
+/// A voice turn's transcript is the turn. Left unmodelled it reads as an empty
+/// message with an audio blob attached.
+#[test]
+fn chatgpt_keeps_voice_transcripts_as_text() {
+    let doc = panchat::normalize(&chatgpt_sharded_files()).unwrap();
+    let n1 = doc.conversations[0]
+        .messages
+        .iter()
+        .find(|m| m.id == "n1")
+        .unwrap();
+    assert_eq!(n1.text(), "The diagram shows the token rotation flow.");
+}
+
+/// Reasoning is preserved whole rather than folded into the answer: a summary
+/// of the model's thinking is not what the assistant said.
+#[test]
+fn chatgpt_keeps_reasoning_turns_verbatim() {
+    let doc = panchat::normalize(&chatgpt_sharded_files()).unwrap();
+    let m1 = doc.conversations[1]
+        .messages
+        .iter()
+        .find(|m| m.id == "m1")
+        .unwrap();
+
+    let (kind, raw) = m1
+        .content
+        .iter()
+        .find_map(|p| match p {
+            ContentPart::Unknown { kind, raw } => Some((kind.clone(), raw.clone())),
+            _ => None,
+        })
+        .expect("reasoning kept");
+    assert_eq!(kind.as_deref(), Some("thoughts"));
+    assert!(raw.get("thoughts").is_some(), "the payload survives intact");
+    assert_eq!(m1.text(), "", "reasoning is not the assistant's answer");
+}
+/// The newer layout keeps `conversations.json` and moves everything else. An
+/// adapter written for the flat shape reads it without complaint and returns
+/// no projects, no memories, and none of the design chats.
+#[test]
+fn claude_directory_export_reads_the_side_car_directories() {
+    let files = claude_directory_files();
+    let d = panchat::detect(&files).expect("claude detected");
+    assert_eq!(d.variant, "official_export_v2");
+    assert_eq!(d.variant_version, 2);
+
+    let doc = panchat::normalize(&files).unwrap();
+    let kinds: Vec<&str> = doc.artifacts.iter().map(|a| a.kind.as_str()).collect();
+    assert!(kinds.contains(&"project"), "projects/<uuid>.json read");
+    assert!(
+        kinds.contains(&"project_doc"),
+        "a project's documents are the part the user wrote"
+    );
+
+    // The memory shape with no row ids at all — parsed as the old one it
+    // yields nothing, silently.
+    let memories: Vec<&str> = doc
+        .artifacts
+        .iter()
+        .filter(|a| a.kind == "memory")
+        .filter_map(|a| a.title.as_deref())
+        .collect();
+    assert_eq!(
+        memories,
+        vec!["conversations memory", "/areas/podium.md", "/profile.md"]
+    );
+
+    // Account metadata is skipped on purpose, and said out loud.
+    let skipped: Vec<&str> = doc
+        .warnings
+        .iter()
+        .filter(|w| w.code == WarningCode::UnhandledExportSection)
+        .filter_map(|w| w.detail.as_deref())
+        .collect();
+    assert!(skipped.contains(&"users.json"));
+    assert!(skipped.contains(&"login_history.json"));
+}
+
+/// Design chats are conversations in a different dialect. Ignoring them loses
+/// whole chats, not fields.
+#[test]
+fn claude_reads_design_chats_as_conversations() {
+    let doc = panchat::normalize(&claude_directory_files()).unwrap();
+    let chat = doc
+        .conversations
+        .iter()
+        .find(|c| c.id == "design-1")
+        .expect("design chat read");
+
+    assert_eq!(
+        chat.project.as_ref().unwrap().name.as_deref(),
+        Some("Politis Hub")
+    );
+    assert_eq!(chat.active_path, vec!["d0", "d1"]);
+    assert_eq!(
+        chat.x
+            .get("x-panchat")
+            .and_then(|v| v.get("claude_export_section")),
+        Some(&serde_json::json!("design_chats")),
+        "which half of the export a conversation came from cannot be inferred"
+    );
+
+    let user = &chat.messages[0];
+    assert_eq!(user.role, Role::User);
+    // Prompt text, then the attachment's own text, which shipped inline.
+    assert!(user.text().contains("Redo the landing page."));
+    assert!(user.text().contains("Use the brand palette."));
+    let named: Vec<&str> = user
+        .content
+        .iter()
+        .filter_map(|p| match p {
+            ContentPart::Attachment { name, .. } => name.as_deref(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(named, vec!["Design System", "screenshot.png"]);
+    // Only the one with no inline content is actually missing.
+    assert_eq!(
+        doc.warnings
+            .iter()
+            .filter(|w| w.code == WarningCode::AttachmentNotIncluded
+                && w.message_id.as_deref() == Some("d0"))
+            .count(),
+        1
+    );
+
+    let assistant = &chat.messages[1];
+    assert_eq!(
+        assistant.text(),
+        "I'll start by looking at the current state of things."
+    );
+    assert!(assistant.content.iter().any(
+        |p| matches!(p, ContentPart::ToolUse { name, .. } if name.as_deref() == Some("list_files"))
+    ));
+    assert!(assistant
+        .content
+        .iter()
+        .any(|p| matches!(p, ContentPart::ToolResult { .. })));
+    // An empty thinking placeholder is not a thought that was lost.
+    let unknown: Vec<&str> = assistant
+        .content
+        .iter()
+        .filter_map(|p| match p {
+            ContentPart::Unknown { kind, .. } => kind.as_deref(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(unknown, vec!["error"]);
+}
+
+/// Vendors ship exports as zip archives and people pass them along unopened.
+/// "Unrecognised export" is the wrong answer to the commonest mistake.
+#[test]
+fn a_zip_archive_is_named_rather_than_called_unrecognisable() {
+    let mut zip = b"PK\x03\x04".to_vec();
+    zip.extend_from_slice(&[0u8; 32]);
+    let files = vec![ExportFile::new("claude-export.zip", zip)];
+
+    let err = panchat::normalize(&files).unwrap_err().to_string();
+    assert!(err.contains("zip archive"), "{err}");
+    assert!(err.contains("unpack"), "{err}");
+}
+
+/// Both layouts stay readable. A vendor changing its export must not turn an
+/// older download in someone's Downloads folder into an unreadable file.
+#[test]
+fn chatgpt_old_single_file_layout_still_reads() {
+    let d = panchat::detect(&chatgpt_files()).expect("flat chatgpt detected");
+    assert_eq!(d.variant, "official_export_v1");
+    assert_eq!(d.variant_version, 1);
+
+    let doc = panchat::normalize(&chatgpt_files()).unwrap();
+    assert_eq!(doc.conversations.len(), 1);
+    assert_eq!(doc.source.variant.as_deref(), Some("official_export_v1"));
+    assert_eq!(doc.source.variant_version, Some(1));
+}
+
+/// The layout before `conversation_asset_file_names.json` existed: the bytes
+/// keep their original name and the asset id is only a prefix of it.
+#[test]
+fn chatgpt_resolves_attachments_in_the_older_filename_layout() {
+    let mut files = files(&[("conversations.json", CHATGPT)]);
+    files.push(ExportFile::reference(
+        "dalle-generations/abc-a-cat-on-a-roof.webp",
+        9000,
+    ));
+
+    let doc = panchat::normalize(&files).unwrap();
+    let n4 = doc.conversations[0]
+        .messages
+        .iter()
+        .find(|m| m.id == "n4")
+        .unwrap();
+    let (name, path) = n4
+        .content
+        .iter()
+        .find_map(|p| match p {
+            ContentPart::Attachment { name, path, .. } => Some((name.clone(), path.clone())),
+            _ => None,
+        })
+        .expect("attachment part");
+    assert_eq!(
+        path.as_deref(),
+        Some("dalle-generations/abc-a-cat-on-a-roof.webp")
+    );
+    assert_eq!(name.as_deref(), Some("abc-a-cat-on-a-roof.webp"));
+    assert!(
+        !doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::AttachmentNotIncluded),
+        "bytes that shipped under the old naming must not be reported missing"
+    );
+}
+
+#[test]
+fn claude_old_flat_layout_still_reads() {
+    let d = panchat::detect(&claude_files()).expect("flat claude detected");
+    assert_eq!(d.variant, "official_export_v1");
+    assert_eq!(d.variant_version, 1);
+
+    let doc = panchat::normalize(&claude_files()).unwrap();
+    assert_eq!(doc.conversations.len(), 1);
+    // The older memory rows, each with their own uuid.
+    assert!(doc.artifacts.iter().any(|a| a.kind == "memory"));
+    assert!(doc.artifacts.iter().any(|a| a.kind == "project"));
+}
+
+/// An export that has both — the flat side-cars and the new directories —
+/// must not make the adapter choose one.
+#[test]
+fn claude_reads_a_mixed_layout_whole() {
+    let mut mixed = claude_files();
+    mixed.extend(files(&[
+        ("projects/proj-9.json", CLAUDE_PROJECT_DIR),
+        ("design_chats/design-1.json", CLAUDE_DESIGN_CHAT),
+    ]));
+
+    let doc = panchat::normalize(&mixed).unwrap();
+    assert_eq!(
+        doc.conversations.len(),
+        2,
+        "flat conversation plus design chat"
+    );
+    let projects: Vec<&str> = doc
+        .artifacts
+        .iter()
+        .filter(|a| a.kind == "project")
+        .filter_map(|a| a.title.as_deref())
+        .collect();
+    assert_eq!(projects, vec!["ModelCaddy", "Politis Hub"]);
+}
+
+/// A document has to say which generation of the vendor's export made it. A
+/// third party reading the JSON cannot ask us afterwards, and the answer
+/// changes what the data means — v1 ChatGPT rarely ships attachment bytes,
+/// v2 does; v1 Claude has no design chats, v2 does.
+#[test]
+fn every_document_states_the_export_shape_it_came_from() {
+    let cases: [(Vec<ExportFile>, &str, u32); 4] = [
+        (chatgpt_files(), "chatgpt", 1),
+        (chatgpt_sharded_files(), "chatgpt", 2),
+        (claude_files(), "claude", 1),
+        (claude_directory_files(), "claude", 2),
+    ];
+
+    for (files, platform, version) in cases {
+        let doc = panchat::normalize(&files).unwrap();
+        assert_eq!(doc.source.platform, platform);
+        assert_eq!(
+            doc.source.variant_version,
+            Some(version),
+            "{platform} v{version} must say so in the document"
+        );
+        assert_eq!(
+            doc.source.variant.as_deref(),
+            Some(format!("official_export_v{version}").as_str())
+        );
+
+        // And it survives serialization, which is the only form a third party
+        // ever sees.
+        let json = panchat::export::to_json(&doc).unwrap();
+        let back: panchat::Document = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.source.variant_version, Some(version));
+    }
+}
+
+/// The newer layout without the parts that make it obvious: no shards, no
+/// design chats — just the files that only the current export ships.
+#[test]
+fn export_shape_is_recognised_without_the_obvious_markers() {
+    let mut chatgpt = files(&[("conversations.json", CHATGPT)]);
+    chatgpt.push(ExportFile::new(
+        "conversation_asset_file_names.json",
+        CHATGPT_ASSET_NAMES.as_bytes().to_vec(),
+    ));
+    let d = panchat::detect(&chatgpt).expect("chatgpt detected");
+    assert_eq!(d.variant_version, 2, "one shard, but the v2 asset map");
+
+    let claude = files(&[
+        ("conversations.json", CLAUDE_CONVS),
+        ("memories.json", CLAUDE_MEMORIES_V2),
+    ]);
+    let d = panchat::detect(&claude).expect("claude detected");
+    assert_eq!(d.variant_version, 2, "no directories, but the v2 memories");
 }

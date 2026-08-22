@@ -47,8 +47,40 @@ panchat ~/Downloads/chatgpt-export --format json | jq '.conversations | length'
 
 | Platform | Export | Status |
 |---|---|---|
-| ChatGPT | `conversations.json` | Conversations, branch graph, attachments (referenced), per-message model |
-| Claude | `conversations.json` + `projects.json` + `memories.json` | Conversations, projects, memories, attachments (referenced) |
+| ChatGPT | `conversations.json`, or sharded `conversations-000.json` … plus `export_manifest.json` | Conversations, branch graph, per-message model, voice transcripts, attachments (resolved to the bytes the export ships) |
+| Claude | `conversations.json` + `projects.json` / `projects/`, `memories.json`, `design_chats/` | Conversations, Claude Design chats, projects and their documents, memories, tool calls, attachments (referenced) |
+
+## Input
+
+An **unpacked** export: a directory, or a single `conversations.json`. Vendors ship a zip; unpack it
+first. Handed an archive, the crate says so by name instead of reporting it unrecognisable:
+
+```text
+error: unrecognised export: claude-export.zip is a zip archive; unpack it and pass the folder
+```
+
+Validation is detection: `panchat::detect` returns the vendor and a confidence, `normalize` returns
+`Err(NotRecognized)` with the files it saw when nothing matches, and everything it *did* recognise
+but could not fully represent comes back as warnings on the document rather than as an error.
+
+Directories are walked whole. Structured files are read; attachment blobs are recorded by name and
+size without being loaded, so a 619 MB export costs megabytes, not gigabytes.
+
+## Format changes
+
+Vendors change their exports without saying so, and the change alters what the data means: one
+generation of a ChatGPT export ships attachment bytes and the one before it does not. So every
+document says which generation it came from —
+
+```json
+"source": { "platform": "chatgpt", "variant": "official_export_v2", "variant_version": 2 }
+```
+
+— and a consumer asks `variant_version >= 2` rather than matching strings. What each one looked like
+when it was read, and what that cost, is logged per source — [ChatGPT](docs/formats/chatgpt.md),
+[Claude](docs/formats/claude.md) — and every change to this crate is in [CHANGELOG.md](CHANGELOG.md).
+Both old and new layouts stay readable: a download that has been sitting in someone's Downloads
+folder for a year must not become unreadable because the vendor moved on.
 
 ## Known lossiness, by vendor
 
@@ -58,10 +90,12 @@ The point of this table is that no vendor publishes it.
 |---|---|---|
 | Branch / regeneration history | present, preserved | not in export |
 | Per-message model identity | present | **absent from the format** |
-| Attachment bytes | not included, referenced only | not included, referenced only |
+| Attachment bytes | shipped for uploads and generated images, referenced only for expired voice assets | not included, referenced only |
 | Tool / code-interpreter payloads | partially typed, rest preserved verbatim | typed (`tool_use` / `tool_result`) |
+| Reasoning turns | present as `thoughts` / `reasoning_recap`, kept verbatim, never merged into the answer | not in export |
 | Timestamps | float unix seconds | ISO 8601 |
 | Project membership | via template/gizmo id, name not included | full, with name |
+| Side-cars | none in the export | projects and their docs, memories; account and login history skipped on purpose |
 
 ## Output formats
 
