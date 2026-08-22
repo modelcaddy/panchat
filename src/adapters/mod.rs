@@ -15,18 +15,47 @@ pub mod claude;
 
 /// One file from an export. A bare `conversations.json` is a single-element
 /// slice; an unpacked archive is many.
+///
+/// A file may be *referenced* rather than loaded: a modern ChatGPT export is
+/// hundreds of megabytes of attachment bytes around a few megabytes of chat,
+/// and an adapter only needs to know those files are there, not what is in
+/// them. See [`ExportFile::reference`].
 #[derive(Debug, Clone)]
 pub struct ExportFile {
     /// Path relative to the export root, using forward slashes.
     pub path: String,
+    /// The file's contents, or empty when it was only referenced.
     pub bytes: Vec<u8>,
+    /// Size on disk. Equal to `bytes.len()` for a loaded file, and the real
+    /// size for a referenced one.
+    pub size_bytes: u64,
+    /// False when only the file's presence is known. An adapter that needs to
+    /// read a referenced file must say so rather than treat it as empty.
+    pub loaded: bool,
 }
 
 impl ExportFile {
     pub fn new(path: impl Into<String>, bytes: Vec<u8>) -> Self {
+        let size_bytes = bytes.len() as u64;
         Self {
             path: path.into(),
             bytes,
+            size_bytes,
+            loaded: true,
+        }
+    }
+
+    /// A file known to exist, whose bytes were deliberately not read.
+    ///
+    /// This is how attachment blobs reach an adapter: presence and size are
+    /// the only facts about them the IR records, and reading a gigabyte of
+    /// images to learn them would be absurd.
+    pub fn reference(path: impl Into<String>, size_bytes: u64) -> Self {
+        Self {
+            path: path.into(),
+            bytes: Vec::new(),
+            size_bytes,
+            loaded: false,
         }
     }
 
@@ -41,6 +70,9 @@ impl ExportFile {
 pub struct Detection {
     pub platform: &'static str,
     pub variant: &'static str,
+    /// Which generation of the vendor's export shape this is — see
+    /// [`crate::ir::Source::variant_version`].
+    pub variant_version: u32,
     /// 0.0–1.0. The registry picks the highest vote; ties break on registry
     /// order, so keep the list in descending order of shape distinctiveness.
     pub confidence: f64,

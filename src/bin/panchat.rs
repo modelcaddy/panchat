@@ -1,8 +1,12 @@
 //! `panchat` — read an AI chat export and write it somewhere useful.
 //!
 //! The CLI exists so the library's claim is checkable in one command without
-//! writing any code: `panchat export.zip --format json | jq` either works or
-//! it does not.
+//! writing any code: `panchat chatgpt-export/ --format json | jq` either works
+//! or it does not.
+//!
+//! The input is an unpacked export — a directory, or a single
+//! `conversations.json`. Zip archives are not read; the crate says so rather
+//! than reporting the archive as unrecognisable.
 
 use clap::{Parser, ValueEnum};
 use panchat::export::{self, Branches};
@@ -47,7 +51,16 @@ enum Format {
     Markdown,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
+    // Debug-formatted errors (`NotRecognized("…")`) are for us; a person
+    // holding an export that did not import needs the sentence inside them.
+    if let Err(e) = run() {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let files = panchat::read_path(&args.input)?;
 
@@ -56,6 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(d) => {
                 println!("platform:   {}", d.platform);
                 println!("variant:    {}", d.variant);
+                println!("shape:      v{}", d.variant_version);
                 println!("confidence: {:.2}", d.confidence);
                 for n in &d.notes {
                     println!("note:       {n}");

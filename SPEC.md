@@ -32,12 +32,18 @@ JSON, UTF-8, no BOM.
 | Conversation stream | `.chat.jsonl` | One `Conversation` object per line, newline-delimited |
 | Bundle | `.chat` | Zip containing `document.chat.json` plus attachment bytes under `attachments/` |
 
-The bundle form exists because a conversation with attachments cannot be a single JSON file. Only
-the bundle form may populate `ContentPart.Attachment.path`.
+The bundle form exists because a conversation with attachments cannot be a single JSON file.
+
+`ContentPart.Attachment.path` may be populated by the bundle form, and by a producer reading an
+unpacked vendor export that ships its attachment bytes — ChatGPT's does. In the bundle form the
+path is inside the bundle; otherwise it is **relative to the export root the document was produced
+from**, and means nothing away from it. A producer that cannot state where the bytes are **MUST**
+leave `path` absent and warn `attachment_not_included`.
 
 > **Implementation status:** the reference implementation reads and writes the `.chat.json` and
-> `.chat.jsonl` forms. The `.chat` bundle is specified but **not yet implemented** — no producer
-> currently emits `path`, and every attachment is reported `attachment_not_included`.
+> `.chat.jsonl` forms. The `.chat` bundle is specified but **not yet implemented**. The ChatGPT
+> adapter emits `path` for attachments whose bytes are in the export directory it read, and
+> reports `attachment_not_included` for the rest.
 
 There is no registered media type yet; `application/json` is correct in the meantime.
 
@@ -110,12 +116,27 @@ what its original export was missing.
 |---|---|---|---|
 | `platform` | string | ✅ | `chatgpt`, `claude`, … |
 | `method` | string | — | `export` or `capture`. See *Acquisition methods*. |
-| `variant` | string | — | Which shape was recognised, e.g. `official_export_v1`. |
+| `variant` | string | — | Which shape was recognised, e.g. `official_export_v2`. |
+| `variant_version` | integer ≥ 1 | — | Generation of that shape, as the producer numbers it. |
 | `exported_at` | string (RFC 3339) | — | When the vendor generated the export, if it says. |
 
 `platform` is a **free string, not an enumeration**. A producer for a vendor this specification has
 never heard of must be expressible without a specification change. Consumers **MUST NOT** reject a
 `platform` they do not recognise.
+
+`variant` and `variant_version` describe **the source the document was made from**, not the document
+itself — that is `format_version`. Vendors change their exports without announcing it, and the
+change alters what the data means: one generation of a ChatGPT export ships attachment bytes and the
+one before it does not; one generation of a Claude export contains design chats and the one before
+it does not. A consumer that cannot see which generation it holds cannot tell "this user had no
+attachments" from "this export did not include them".
+
+A producer that recognises more than one shape of a vendor's export **SHOULD** number them from `1`
+in the order they appeared and emit `variant_version`, and **SHOULD** publish what each number means
+— the reference implementation does so in `docs/formats/`. Numbers are per `platform` and are the
+producer's, not the vendor's; two producers may disagree. `variant_version` is therefore only
+meaningful alongside `platform` and the producer's own documentation, and consumers **MUST NOT**
+reject a value they do not recognise. `variant` remains the human-readable name of the same thing.
 
 ## Acquisition methods
 
@@ -278,13 +299,13 @@ Multiple consecutive `text` parts are permitted; consumers joining them **SHOULD
 | `id` | string | — | Vendor's file identifier. |
 | `name` | string | — | Original filename. |
 | `mime_type` | string | — | A real media type, or absent. |
-| `path` | string | — | Path inside the bundle. Present **only** when the bytes shipped. |
+| `path` | string | — | Where the bytes are, inside the bundle or relative to the export root. Present **only** when the bytes shipped. |
 | `size_bytes` | integer | — | |
 
 **Absence of `path` means the bytes are not available.** Nearly every vendor export references
-files it does not include; a producer in that situation **MUST** emit an
-`attachment_not_included` warning so a consumer can tell the user rather than silently rendering a
-broken image.
+files it does not include — expired voice assets, files uploaded to a session that has since been
+cleaned up; a producer in that situation **MUST** emit an `attachment_not_included` warning so a
+consumer can tell the user rather than silently rendering a broken image.
 
 `mime_type` **MUST** be a real media type or absent. Producers **MUST NOT** put a vendor's internal
 part label there — a consumer will act on it.
@@ -436,7 +457,7 @@ length; a real document carries it.
 {
   "schema": "https://modelcaddy.github.io/panchat/schema/chat-v0.1.json",
   "format_version": "0.1",
-  "source": { "platform": "chatgpt", "variant": "official_export_v1" },
+  "source": { "platform": "chatgpt", "variant": "official_export_v2", "variant_version": 2 },
   "conversations": [
     {
       "id": "conv-1",

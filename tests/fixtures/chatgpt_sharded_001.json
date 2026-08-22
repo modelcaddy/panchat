@@ -1,0 +1,39 @@
+[
+  {
+    "conversation_id": "sh-2",
+    "title": "Reasoning kept whole",
+    "create_time": 1750001000.0,
+    "update_time": 1750001200.0,
+    "current_node": "m1",
+    "mapping": {
+      "root": { "id": "root", "parent": null, "children": ["m0"], "message": null },
+      "m0": {
+        "id": "m0",
+        "parent": "root",
+        "children": ["m1"],
+        "message": {
+          "author": { "role": "user" },
+          "create_time": 1750001100.0,
+          "content": { "content_type": "text", "parts": ["Why?"] }
+        }
+      },
+      "m1": {
+        "id": "m1",
+        "parent": "m0",
+        "children": [],
+        "message": {
+          "author": { "role": "assistant" },
+          "create_time": 1750001200.0,
+          "content": {
+            "content_type": "thoughts",
+            "source_analysis_msg_id": "m0",
+            "thoughts": [
+              { "summary": "Weighing the options", "content": "The user wants the short answer.", "finished": true }
+            ]
+          },
+          "metadata": { "model_slug": "gpt-5.2" }
+        }
+      }
+    }
+  }
+]

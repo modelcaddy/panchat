@@ -1,0 +1,19 @@
+{
+  "uuid": "proj-9",
+  "name": "Politis Hub",
+  "description": "Political technology platform.",
+  "is_private": true,
+  "is_starter_project": false,
+  "prompt_template": "",
+  "created_at": "2026-03-27T07:23:01.029524+00:00",
+  "updated_at": "2026-07-07T23:05:33.187881+00:00",
+  "creator": { "uuid": "acct-1", "full_name": "George" },
+  "docs": [
+    {
+      "uuid": "doc-1",
+      "filename": "brief.md",
+      "content": "# Brief\n\nThe thing we are building.",
+      "created_at": "2026-03-27T07:24:00.000000+00:00"
+    }
+  ]
+}
