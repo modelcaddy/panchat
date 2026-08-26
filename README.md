@@ -124,12 +124,29 @@ its own export.
 every property, the branch-graph rules, warning codes, and conformance requirements.
 [`schema/chat-v0.1.json`](schema/chat-v0.1.json) is the machine-readable half.
 
+Every platform produces the **same document**. Only `source.platform` differs; the keys, the nesting
+and the schema do not. A consumer written against one vendor's output already reads them all, and a
+vendor's own concepts live under a namespaced `x-` key rather than changing the shape.
+
 ## Design rules
 
 1. A tiny required core — only what every vendor actually has.
 2. Extension points reserved from v0.1, because they cannot be retrofitted.
 3. Consumers must preserve fields they do not recognise.
 4. Nothing app-specific in the core namespace.
+
+## Contributing
+
+Two vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
+platform or a copy of every export shape. Adapters arrive as pull requests, and
+[CONTRIBUTING.md](CONTRIBUTING.md) walks through writing one: the trait is four methods, and the
+review bar is about honesty rather than polish — declare what you dropped, and never drop what you
+did not understand.
+
+You do not need to write Rust to help. **"My export stopped reading"** is the report we cannot get
+any other way, because no vendor announces a change. Please do not attach your export to anything:
+it contains every word you have ever typed into that product, and the issue templates ask only for
+`--inspect` output and a file listing.
 
 ## License
 
