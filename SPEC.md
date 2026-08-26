@@ -34,10 +34,13 @@ JSON, UTF-8, no BOM.
 
 The bundle form exists because a conversation with attachments cannot be a single JSON file.
 
-`ContentPart.Attachment.path` may be populated by the bundle form, and by a producer reading an
-unpacked vendor export that ships its attachment bytes — ChatGPT's does. In the bundle form the
-path is inside the bundle; otherwise it is **relative to the export root the document was produced
-from**, and means nothing away from it. A producer that cannot state where the bytes are **MUST**
+`ContentPart.Attachment.path` may be populated by the bundle form, and by a producer reading a
+vendor export that ships its attachment bytes — ChatGPT's does. In the bundle form the path is
+inside the bundle; otherwise it is **relative to the export root the document was produced from**,
+and means nothing away from it. A producer reading an export still inside its archive **SHOULD**
+emit the path the unpacked export would have had, so that the same export yields the same document
+whether or not it was unpacked; where the vendor wraps everything in a single top-level folder,
+that folder is not part of the path. A producer that cannot state where the bytes are **MUST**
 leave `path` absent and warn `attachment_not_included`.
 
 > **Implementation status:** the reference implementation reads and writes the `.chat.json` and
