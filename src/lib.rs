@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 pub mod adapters;
+#[cfg(feature = "zip")]
+pub mod archive;
 pub mod export;
 pub mod ir;
 pub mod warning;
@@ -46,7 +48,34 @@ pub enum Error {
 /// # }
 /// ```
 pub fn normalize(files: &[ExportFile]) -> Result<Document, Error> {
-    let (adapter, detection) = adapters::detect(files).ok_or_else(|| unrecognized(files))?;
+    // An archive handed in whole is expanded here rather than at the filesystem
+    // boundary, so a caller that loaded the bytes itself — over HTTP, out of a
+    // database, from a browser upload — gets the same behaviour as one that
+    // passed a path.
+    #[cfg(feature = "zip")]
+    let archives: Vec<String> = files
+        .iter()
+        .filter(|f| f.loaded && is_zip(&f.bytes))
+        .map(|f| f.path.clone())
+        .collect();
+    #[cfg(feature = "zip")]
+    let expanded = archive::expand_archives(files)?;
+    #[cfg(feature = "zip")]
+    let files: &[ExportFile] = expanded.as_deref().unwrap_or(files);
+
+    let (adapter, detection) = adapters::detect(files).ok_or_else(|| {
+        let err = unrecognized(files);
+        // The user passed an archive, so the error has to name the archive.
+        // After expansion the failing files are entries inside it, and an error
+        // about `holiday.txt` when they handed over `export.zip` is a riddle.
+        #[cfg(feature = "zip")]
+        if let (Error::NotRecognized(detail), [name, ..]) = (&err, archives.as_slice()) {
+            return Error::NotRecognized(format!(
+                "{name} is a zip archive, and nothing inside it looked like an export: {detail}"
+            ));
+        }
+        err
+    })?;
 
     let mut warnings = Warnings::new();
     let mut doc = adapter.parse(files, &mut warnings)?;
@@ -61,8 +90,18 @@ pub fn normalize(files: &[ExportFile]) -> Result<Document, Error> {
 /// commonest mistake: say what the file is and what to do about it.
 fn unrecognized(files: &[ExportFile]) -> Error {
     if let Some(zip) = files.iter().find(|f| is_zip(&f.bytes)) {
+        // With the `zip` feature on, an archive has already been expanded by
+        // the time we get here, so reaching this means the archive was read and
+        // its contents still matched no adapter.
+        #[cfg(feature = "zip")]
         return Error::NotRecognized(format!(
-            "{} is a zip archive; unpack it and pass the folder (this crate does not read archives)",
+            "{} is a zip archive, and nothing inside it looked like an export",
+            zip.path
+        ));
+        #[cfg(not(feature = "zip"))]
+        return Error::NotRecognized(format!(
+            "{} is a zip archive; unpack it and pass the folder, or build with the `zip` feature \
+             to read archives directly",
             zip.path
         ));
     }
@@ -85,7 +124,7 @@ fn unrecognized(files: &[ExportFile]) -> Error {
 
 /// Local file header, or the end-of-central-directory record of an empty
 /// archive.
-fn is_zip(bytes: &[u8]) -> bool {
+pub(crate) fn is_zip(bytes: &[u8]) -> bool {
     bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"PK\x05\x06")
 }
 
@@ -117,7 +156,14 @@ pub fn read_path(path: impl AsRef<Path>) -> Result<Vec<ExportFile>, Error> {
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| path.to_string_lossy().to_string());
-        return Ok(vec![ExportFile::new(name, std::fs::read(path)?)]);
+        let bytes = std::fs::read(path)?;
+        // Detected by content, not by extension: vendors and browsers rename
+        // downloads freely, and a zip is a zip whatever it is called.
+        #[cfg(feature = "zip")]
+        if is_zip(&bytes) {
+            return archive::read_zip_bytes(&bytes);
+        }
+        return Ok(vec![ExportFile::new(name, bytes)]);
     }
 
     let mut out = Vec::new();
@@ -133,6 +179,23 @@ const STRUCTURED: [&str; 5] = ["json", "jsonl", "ndjson", "md", "txt"];
 /// up to a size at which that guess stops being worth the memory.
 const UNTYPED_LIMIT: u64 = 4 * 1024 * 1024;
 
+/// Whether a file at this relative path is worth loading, or should be recorded
+/// by name and size alone.
+///
+/// Shared with the archive reader so that a zip and the folder it unpacks to
+/// produce the same [`ExportFile`] slice.
+pub(crate) fn should_load(rel_path: &str, size: u64) -> bool {
+    // `Path::extension` rather than a manual split, so that a dotfile is
+    // extensionless here exactly as it is when walking a directory.
+    match Path::new(rel_path)
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+    {
+        Some(ext) => STRUCTURED.contains(&ext.as_str()),
+        None => size <= UNTYPED_LIMIT,
+    }
+}
+
 fn collect_dir(root: &Path, dir: &Path, out: &mut Vec<ExportFile>) -> Result<(), Error> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -147,14 +210,7 @@ fn collect_dir(root: &Path, dir: &Path, out: &mut Vec<ExportFile>) -> Result<(),
             .to_string_lossy()
             .replace('\\', "/");
         let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-        let extension = p
-            .extension()
-            .map(|e| e.to_string_lossy().to_ascii_lowercase());
-        let read_it = match extension {
-            Some(ext) => STRUCTURED.contains(&ext.as_str()),
-            None => size <= UNTYPED_LIMIT,
-        };
-        if read_it {
+        if should_load(&rel, size) {
             out.push(ExportFile::new(rel, std::fs::read(&p)?));
         } else {
             out.push(ExportFile::reference(rel, size));

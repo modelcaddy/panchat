@@ -525,6 +525,10 @@ fn claude_reads_design_chats_as_conversations() {
 
 /// Vendors ship exports as zip archives and people pass them along unopened.
 /// "Unrecognised export" is the wrong answer to the commonest mistake.
+///
+/// What the right answer is depends on the `zip` feature: without it, say to
+/// unpack the archive; with it, the archive is read, so this input fails as the
+/// corrupt zip it actually is. Either way it is named as an archive.
 #[test]
 fn a_zip_archive_is_named_rather_than_called_unrecognisable() {
     let mut zip = b"PK\x03\x04".to_vec();
@@ -533,6 +537,8 @@ fn a_zip_archive_is_named_rather_than_called_unrecognisable() {
 
     let err = panchat::normalize(&files).unwrap_err().to_string();
     assert!(err.contains("zip archive"), "{err}");
+    assert!(err.contains("claude-export.zip"), "{err}");
+    #[cfg(not(feature = "zip"))]
     assert!(err.contains("unpack"), "{err}");
 }
 
