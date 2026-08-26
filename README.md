@@ -3,8 +3,7 @@
 Read AI chat exports from any vendor into one representation — and say out loud what each export
 left behind.
 
-> **Status: v0.1, pre-1.0.** The shape may still move. The crate name is provisional pending a
-> naming clearance check.
+> **Status: pre-1.0.** The interchange format is v0.1 and the shape may still move.
 
 ```rust,no_run
 let files = panchat::read_path("chatgpt-export/")?;
