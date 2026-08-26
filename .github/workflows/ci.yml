@@ -30,5 +30,11 @@ jobs:
       - name: Test
         run: cargo test --all-features
 
+      # Features gate behaviour, not just compilation — the `zip` feature
+      # changes what a zip input does — so the default build is tested too.
+      # A cfg mistake here is invisible to --all-features.
+      - name: Test (default features)
+        run: cargo test
+
       - name: CLI smoke
         run: cargo run --features cli --bin panchat -- tests/fixtures/chatgpt_branched.json --inspect

@@ -11,6 +11,23 @@ cost us, is recorded per source:
 - [ChatGPT export log](docs/formats/chatgpt.md)
 - [Claude export log](docs/formats/claude.md)
 
+## Unreleased
+
+### Added
+
+- **Zip archives are read in place**, under the new `zip` feature — on by default for the `cli`
+  feature, off for the library so the dependency stays opt-in. The archive the vendor hands you and
+  the directory it unpacks to produce identical documents: entry paths are matched to the unpacked
+  layout by stripping the vendor's single wrapper folder, and the same rule decides which files are
+  worth loading, so attachment blobs inside an archive are referenced rather than decompressed.
+  Archives are recognised by content, not by extension. `normalize` expands one handed to it
+  directly, so a caller who loaded the bytes over HTTP or out of a database gets the same behaviour
+  as one who passed a path. Without the feature, nothing changes: an archive is still named and the
+  error still says to unpack it.
+- **A decompression budget.** An archive is the one input that can lie about its size, so no more
+  than 2 GiB of readable files is loaded from one, and reads are bounded by what is left of that
+  budget rather than by the size the archive claims.
+
 ## 0.2.0 — 2026-08-27
 
 The first release published to crates.io. `0.1.0` never left this repository.

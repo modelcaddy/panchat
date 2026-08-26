@@ -51,19 +51,29 @@ panchat ~/Downloads/chatgpt-export --format json | jq '.conversations | length'
 
 ## Input
 
-An **unpacked** export: a directory, or a single `conversations.json`. Vendors ship a zip; unpack it
-first. Handed an archive, the crate says so by name instead of reporting it unrecognisable:
+The zip the vendor gave you, an unpacked directory, or a single `conversations.json` — all three
+read the same. The CLI reads archives out of the box; as a library it is the `zip` feature, off by
+default so the dependency is yours to opt into:
+
+```toml
+panchat = { version = "0.2", features = ["zip"] }
+```
+
+An archive is recognised by its contents rather than its name, and the vendor's wrapper folder is
+stripped, so a zip and the directory it unpacks to produce byte-identical documents. Without the
+feature, an archive is still named rather than called unrecognisable:
 
 ```text
-error: unrecognised export: claude-export.zip is a zip archive; unpack it and pass the folder
+error: unrecognised export: claude-export.zip is a zip archive; unpack it and pass the folder,
+or build with the `zip` feature to read archives directly
 ```
 
 Validation is detection: `panchat::detect` returns the vendor and a confidence, `normalize` returns
 `Err(NotRecognized)` with the files it saw when nothing matches, and everything it *did* recognise
 but could not fully represent comes back as warnings on the document rather than as an error.
 
-Directories are walked whole. Structured files are read; attachment blobs are recorded by name and
-size without being loaded, so a 619 MB export costs megabytes, not gigabytes.
+Directories and archives are walked whole. Structured files are read; attachment blobs are recorded
+by name and size without being loaded, so a 619 MB export costs megabytes, not gigabytes.
 
 ## Format changes
 
