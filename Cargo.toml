@@ -2,7 +2,7 @@
 # sinks out; the pandoc pivot, applied to AI chat exports.
 [package]
 name = "panchat"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Read AI chat exports from any vendor into one representation, with the losses named."

@@ -11,7 +11,9 @@ cost us, is recorded per source:
 - [ChatGPT export log](docs/formats/chatgpt.md)
 - [Claude export log](docs/formats/claude.md)
 
-## Unreleased
+## 0.2.0 — 2026-08-27
+
+The first release published to crates.io. `0.1.0` never left this repository.
 
 ### Added
 
