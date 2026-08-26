@@ -11,7 +11,7 @@ cost us, is recorded per source:
 - [ChatGPT export log](docs/formats/chatgpt.md)
 - [Claude export log](docs/formats/claude.md)
 
-## Unreleased
+## 0.3.0 — 2026-08-27
 
 ### Added
 
@@ -27,6 +27,19 @@ cost us, is recorded per source:
 - **A decompression budget.** An archive is the one input that can lie about its size, so no more
   than 2 GiB of readable files is loaded from one, and reads are bounded by what is left of that
   budget rather than by the size the archive claims.
+- **Contributor documentation.** [CONTRIBUTING.md](CONTRIBUTING.md) walks through writing an
+  adapter and states what review checks; issue templates cover a vendor changing its export and
+  adding a platform. Both templates ask for `--inspect` output and a file listing rather than an
+  export, because an export contains every word its owner ever typed into that product.
+
+### Changed
+
+- **SPEC: what an attachment path means when the export is still zipped.** A producer reading an
+  archive SHOULD emit the path the unpacked export would have had, minus the vendor's wrapper
+  folder, so that the same export yields the same document either way.
+- **CI runs the default-feature test suite as well as `--all-features`.** Features gate behaviour
+  here rather than only compilation, so a mistake in a `#[cfg]` is invisible to `--all-features`
+  alone — as one was: an existing test asserted advice that the `zip` feature makes wrong.
 
 ## 0.2.0 — 2026-08-27
 
