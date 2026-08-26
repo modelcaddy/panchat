@@ -185,11 +185,14 @@ const UNTYPED_LIMIT: u64 = 4 * 1024 * 1024;
 /// Shared with the archive reader so that a zip and the folder it unpacks to
 /// produce the same [`ExportFile`] slice.
 pub(crate) fn should_load(rel_path: &str, size: u64) -> bool {
-    match rel_path.rsplit_once('.') {
-        Some((_, ext)) if !ext.contains('/') => {
-            STRUCTURED.contains(&ext.to_ascii_lowercase().as_str())
-        }
-        _ => size <= UNTYPED_LIMIT,
+    // `Path::extension` rather than a manual split, so that a dotfile is
+    // extensionless here exactly as it is when walking a directory.
+    match Path::new(rel_path)
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+    {
+        Some(ext) => STRUCTURED.contains(&ext.as_str()),
+        None => size <= UNTYPED_LIMIT,
     }
 }
 
@@ -207,14 +210,7 @@ fn collect_dir(root: &Path, dir: &Path, out: &mut Vec<ExportFile>) -> Result<(),
             .to_string_lossy()
             .replace('\\', "/");
         let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-        let extension = p
-            .extension()
-            .map(|e| e.to_string_lossy().to_ascii_lowercase());
-        let read_it = match extension {
-            Some(ext) => STRUCTURED.contains(&ext.as_str()),
-            None => size <= UNTYPED_LIMIT,
-        };
-        if read_it {
+        if should_load(&rel, size) {
             out.push(ExportFile::new(rel, std::fs::read(&p)?));
         } else {
             out.push(ExportFile::reference(rel, size));
