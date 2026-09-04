@@ -131,6 +131,10 @@ fn no_producer_emits_a_dangling_parent() {
             "conversations.json",
             include_str!("fixtures/claude_conversations.json"),
         ),
+        (
+            "MyActivity.json",
+            include_str!("fixtures/gemini_myactivity.json"),
+        ),
     ] {
         let doc = panchat::normalize(&[ExportFile::new(fixture.0, fixture.1.as_bytes().to_vec())])
             .unwrap();

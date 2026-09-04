@@ -30,16 +30,24 @@ Three facts from outside the repository shape the order:
 
 ## Now
 
-The next release. Small, and each item removes a reason not to use the library.
+Done, unreleased, and waiting on the one thing this repository cannot supply itself.
 
-1. [#13](https://github.com/modelcaddy/panchat/issues/13) — Repository hygiene: `NOTICE` and
-   trademark policy, crates.io metadata, a response-time note in CONTRIBUTING.
-2. [#5](https://github.com/modelcaddy/panchat/issues/5) — ChatGPT large-account exports arrive as
-   a zip of zips. Expand one bounded level, number the generation, log it. Needs a real export to
-   confirm; `--inspect` output and an `unzip -l` listing are enough.
-3. [#6](https://github.com/modelcaddy/panchat/issues/6) — Gemini adapter, from Google Takeout. The
-   most-asked-for platform and the clearest lossiness story: it is an activity log, not a chat
-   export. Needs the record shape from someone who has one.
+1. ~~[#13](https://github.com/modelcaddy/panchat/issues/13) — repository hygiene.~~ Done, with one
+   change of plan: there is deliberately **no `NOTICE` file**. Apache-2.0 section 6 makes
+   reproducing `NOTICE` content an express exception to the trademark non-grant, so a name defended
+   there would be a name licensed away. [TRADEMARK.md](TRADEMARK.md) carries it instead, under
+   section 4(c).
+2. ~~[#5](https://github.com/modelcaddy/panchat/issues/5) — a zip of zips.~~ One bounded level of
+   nesting is followed, decided by shape rather than by filename. **Still open on evidence:** the
+   layout is reported rather than observed, and a multi-gigabyte attachment part still exceeds the
+   read budget until streaming lands.
+3. ~~[#6](https://github.com/modelcaddy/panchat/issues/6) — Gemini, from Google Takeout.~~ Shipped,
+   and built without anyone here ever holding a Gemini export — it is reconstructed from twenty
+   other parsers, and [its format log](docs/formats/gemini.md) lists six things still unconfirmed.
+
+**What is blocking all three is the same thing: nobody here has the export.** If you have a large
+ChatGPT download or any Gemini Takeout, the `--inspect` output and a file listing would move more
+than any amount of further code. Never the export itself.
 
 ## Next
 

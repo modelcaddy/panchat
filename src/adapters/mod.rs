@@ -12,6 +12,7 @@ use crate::Error;
 
 pub mod chatgpt;
 pub mod claude;
+pub mod gemini;
 
 /// One file from an export. A bare `conversations.json` is a single-element
 /// slice; an unpacked archive is many.
@@ -97,7 +98,11 @@ pub trait Adapter: Send + Sync {
 
 /// Every registered adapter, in detection priority order.
 pub fn all() -> Vec<Box<dyn Adapter>> {
-    vec![Box::new(chatgpt::ChatGpt), Box::new(claude::Claude)]
+    vec![
+        Box::new(chatgpt::ChatGpt),
+        Box::new(claude::Claude),
+        Box::new(gemini::Gemini),
+    ]
 }
 
 /// Highest-confidence adapter for these files, if any recognises them.

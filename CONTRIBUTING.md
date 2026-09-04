@@ -1,6 +1,6 @@
 # Contributing
 
-The useful thing you can do here is **teach it to read one more export**. Two vendors is a tool;
+The useful thing you can do here is **teach it to read one more export**. Three vendors is a tool;
 enough vendors is infrastructure, and no one person has an account on every platform or a copy of
 every export shape. That is the part of this project that only contributors can supply.
 
@@ -9,8 +9,8 @@ the patch that follows it, and it is the thing we cannot get any other way.
 
 ## What is most wanted
 
-1. **A new platform.** Gemini, Copilot, Grok, DeepSeek, Perplexity, and the local tools — Open
-   WebUI, LM Studio, Jan, SillyTavern. See "Adding an adapter" below.
+1. **A new platform.** Copilot, Grok, DeepSeek, Perplexity, and the local tools — Open WebUI,
+   LM Studio, Jan, SillyTavern. See "Adding an adapter" below.
 2. **A format-drift report.** Your export no longer parses, or parses wrongly. Open an issue with
    the output of `panchat <your-export> --inspect` and what looked wrong. Do not attach the export.
 3. **A fixture.** A small, synthetic file capturing a shape we do not have. Read "Fixtures and your
@@ -119,6 +119,32 @@ Being honest about the state of things is cheaper than being embarrassed later:
   imports its own export, so a writer would be a format nobody reads.
 - **Nothing streams yet.** A very large `conversations.json` is held in memory whole.
 
+What is planned about each of these, and in what order, is in [ROADMAP.md](ROADMAP.md).
+
+## What to expect back
+
+This is maintained by one person, alongside other work, so the honest answer about timing is a
+range rather than a promise:
+
+- **A format-drift report** — "my export stopped reading" — is looked at first, because an export
+  that no longer parses is worth more than any feature. Expect a reply within about a week.
+- **A pull request adding an adapter** gets a real review, but it may sit for a couple of weeks
+  before it gets one. Reviewing an adapter means reading it against the rules above, not skimming
+  it, and that is not a thing to do in a spare ten minutes.
+- **A pull request that rewrites the architecture** will probably be declined, and faster than the
+  others. That is not a judgement of the code — [ROADMAP.md](ROADMAP.md) and the open issues are
+  where a change of that size gets agreed before it gets written.
+- **Silence is not a verdict.** If something has gone quiet for longer than the above, a comment
+  saying so is welcome and is not a nuisance.
+
+Merge rights stay with the maintainer. That is normal for a project this size and is not a
+statement about anyone's patch.
+
 ## License
 
-Apache-2.0. Contributions are accepted under the same license.
+Apache-2.0. Contributions are accepted under the same license. There is no CLA: Apache-2.0 already
+grants what this project needs, including from contributors, so nobody has to sign anything to
+send a patch.
+
+[TRADEMARK.md](TRADEMARK.md) covers the one thing the license does not, which is the names. It does
+not restrict contributing, using, or forking — only shipping a modified version under this name.

@@ -48,6 +48,7 @@ panchat ~/Downloads/chatgpt-export --format json | jq '.conversations | length'
 |---|---|---|
 | ChatGPT | `conversations.json`, or sharded `conversations-000.json` … plus `export_manifest.json` | Conversations, branch graph, per-message model, voice transcripts, attachments (resolved to the bytes the export ships) |
 | Claude | `conversations.json` + `projects.json` / `projects/`, `memories.json`, `design_chats/` | Conversations, Claude Design chats, projects and their documents, memories, tool calls, attachments (referenced) |
+| Gemini | Google Takeout, `My Activity/Gemini Apps/MyActivity.json` | Exchanges, attachments (referenced). An activity log rather than a chat export — see below |
 
 ## Input
 
@@ -56,7 +57,7 @@ read the same. The CLI reads archives out of the box; as a library it is the `zi
 default so the dependency is yours to opt into:
 
 ```toml
-panchat = { version = "0.2", features = ["zip"] }
+panchat = { version = "0.3", features = ["zip"] }
 ```
 
 An archive is recognised by its contents rather than its name, and the vendor's wrapper folder is
@@ -87,7 +88,8 @@ document says which generation it came from —
 
 — and a consumer asks `variant_version >= 2` rather than matching strings. What each one looked like
 when it was read, and what that cost, is logged per source — [ChatGPT](docs/formats/chatgpt.md),
-[Claude](docs/formats/claude.md) — and every change to this crate is in [CHANGELOG.md](CHANGELOG.md).
+[Claude](docs/formats/claude.md), [Gemini](docs/formats/gemini.md) — and every change to this crate
+is in [CHANGELOG.md](CHANGELOG.md).
 Both old and new layouts stay readable: a download that has been sitting in someone's Downloads
 folder for a year must not become unreadable because the vendor moved on.
 
@@ -95,16 +97,21 @@ folder for a year must not become unreadable because the vendor moved on.
 
 The point of this table is that no vendor publishes it.
 
-| | ChatGPT | Claude |
-|---|---|---|
-| Branch / regeneration history | present, preserved | not in export |
-| Per-message model identity | present | **absent from the format** |
-| Attachment bytes | shipped for uploads and generated images, referenced only for expired voice assets | not included, referenced only |
-| Tool / code-interpreter payloads | partially typed, rest preserved verbatim | typed (`tool_use` / `tool_result`) |
-| Reasoning turns | present as `thoughts` / `reasoning_recap`, kept verbatim, never merged into the answer | not in export |
-| Timestamps | float unix seconds | ISO 8601 |
-| Project membership | via template/gizmo id, name not included | full, with name |
-| Side-cars | none in the export | projects and their docs, memories; account and login history skipped on purpose |
+| | ChatGPT | Claude | Gemini |
+|---|---|---|---|
+| What the vendor exports | conversations | conversations | **an activity log**, filtered to one product |
+| Conversation grouping | present | present | **only sometimes** — a `titleUrl` on some rows and nothing on others |
+| Conversation title | present | present | **none**, and never synthesized |
+| Branch / regeneration history | present, preserved | not in export | not in export |
+| Per-message model identity | present | **absent from the format** | **absent from the format** |
+| Attachment bytes | shipped for uploads and generated images, referenced only for expired voice assets | not included, referenced only | not included, referenced only |
+| Tool / code-interpreter payloads | partially typed, rest preserved verbatim | typed (`tool_use` / `tool_result`) | not in export |
+| Reasoning turns | present as `thoughts` / `reasoning_recap`, kept verbatim, never merged into the answer | not in export | not in export |
+| Answer format | Markdown, as stored | Markdown, as stored | **HTML**, passed through unconverted |
+| Timestamps | float unix seconds | ISO 8601 | ISO 8601 |
+| Stable ids | vendor's own | vendor's own | **none** — derived from the record so a re-export de-duplicates |
+| Project membership | via template/gizmo id, name not included | full, with name | not in export |
+| Side-cars | none in the export | projects and their docs, memories; account and login history skipped on purpose | other Gemini activity — canvas, images, feedback — counted and reported |
 
 ## Output formats
 
@@ -135,9 +142,15 @@ vendor's own concepts live under a namespaced `x-` key rather than changing the 
 3. Consumers must preserve fields they do not recognise.
 4. Nothing app-specific in the core namespace.
 
+## Why this is open, and what would help
+
+[WHY.md](WHY.md) is the longer answer: what these exports actually lose, who is behind this and
+where the money is, and the four things that help — the first of which needs no code and is worth
+more than the rest.
+
 ## Contributing
 
-Two vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
+Three vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
 platform or a copy of every export shape. Adapters arrive as pull requests, and
 [CONTRIBUTING.md](CONTRIBUTING.md) walks through writing one: the trait is four methods, and the
 review bar is about honesty rather than polish — declare what you dropped, and never drop what you
@@ -152,4 +165,9 @@ it contains every word you have ever typed into that product, and the issue temp
 
 ## License
 
-Apache-2.0.
+Apache-2.0 — use it, change it, sell it, ship it inside something closed.
+
+The names are the exception, and only because a name is the one thing that cannot be shared without
+making the open half untrustworthy. If you fork and distribute, give it your own name; everything
+else, including saying truthfully what you built on, needs no permission.
+[TRADEMARK.md](TRADEMARK.md) is the whole of it.
