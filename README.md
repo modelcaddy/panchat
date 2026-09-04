@@ -142,6 +142,8 @@ platform or a copy of every export shape. Adapters arrive as pull requests, and
 [CONTRIBUTING.md](CONTRIBUTING.md) walks through writing one: the trait is four methods, and the
 review bar is about honesty rather than polish — declare what you dropped, and never drop what you
 did not understand.
+What is planned, and in what order, is in [ROADMAP.md](ROADMAP.md); every item there is an open
+issue.
 
 You do not need to write Rust to help. **"My export stopped reading"** is the report we cannot get
 any other way, because no vendor announces a change. Please do not attach your export to anything:
