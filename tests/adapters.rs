@@ -925,3 +925,100 @@ fn takeout_exported_as_html_says_which_mistake_was_made() {
         "the error has to say what to do instead: {message}"
     );
 }
+
+#[test]
+fn gemini_reads_every_activity_file_not_the_first() {
+    // The scar this crate already carries: an adapter that read one file and
+    // reported the 100 conversations it found out of the 1,285 that were there,
+    // with no error. Takeout splits a large account across numbered downloads,
+    // so the same shape of mistake is available here.
+    let second = serde_json::json!([{
+        "header": "Gemini Apps",
+        "title": "Prompted A question from the second download",
+        "time": "2026-06-01T09:00:00.000Z",
+        "products": ["Gemini Apps"],
+        "safeHtmlItem": [{ "html": "<p>An invented answer from the other file.</p>" }]
+    }])
+    .to_string();
+
+    let split = files(&[
+        ("Takeout/My Activity/Gemini Apps/MyActivity.json", GEMINI),
+        ("Takeout 2/My Activity/Gemini Apps/MyActivity.json", &second),
+    ]);
+
+    let one_file = panchat::normalize(&gemini_files()).unwrap();
+    let both = panchat::normalize(&split).unwrap();
+
+    assert_eq!(
+        both.conversations.len(),
+        one_file.conversations.len() + 1,
+        "the second download's records are not optional"
+    );
+    assert!(
+        both.conversations.iter().any(|c| c
+            .messages
+            .iter()
+            .any(|m| m.text().contains("second download"))),
+        "and they are the records, not a count"
+    );
+
+    let d = panchat::detect(&split).unwrap();
+    assert!(
+        d.notes.iter().any(|n| n.contains("2 activity file(s)")),
+        "--inspect has to say how many files it is reading: {:?}",
+        d.notes
+    );
+}
+
+#[test]
+fn gemini_does_not_claim_a_search_for_the_word_gemini() {
+    // The whole of somebody's Google Search history sits in the same download,
+    // in the same record shape. Matching the product name anywhere in the URL
+    // is enough to turn "what people searched for" into "what people said to a
+    // chatbot", for anyone who has ever searched the word.
+    let searches = serde_json::json!([
+        {
+            "header": "Search",
+            "title": "Searched for gemini",
+            "titleUrl": "https://www.google.com/search?q=gemini",
+            "time": "2026-07-20T15:15:21.568Z",
+            "products": ["Search"]
+        },
+        {
+            "header": "Search",
+            "title": "Searched for is bard any good",
+            "titleUrl": "https://www.google.com/search?q=is+bard+any+good",
+            "time": "2026-07-20T15:16:00.000Z",
+            "products": ["Search"]
+        }
+    ])
+    .to_string();
+
+    assert!(
+        panchat::detect(&files(&[(
+            "Takeout/My Activity/Search/MyActivity.json",
+            &searches
+        )]))
+        .is_none(),
+        "a search for a product is not that product's activity"
+    );
+}
+
+#[test]
+fn gemini_still_claims_a_record_whose_only_marker_is_the_link() {
+    // The other half of the same rule: a localized export whose header this
+    // adapter cannot read is still identifiable by where the link points.
+    let unnamed_product = serde_json::json!([{
+        "header": "Bilinmeyen",
+        "title": "Bir soru",
+        "titleUrl": "https://gemini.google.com/app/c/invented-thread-9",
+        "time": "2026-07-20T15:15:21.568Z",
+        "products": ["Bilinmeyen"],
+        "safeHtmlItem": [{ "html": "<p>Uydurma bir cevap.</p>" }]
+    }])
+    .to_string();
+
+    let d = panchat::detect(&files(&[("MyActivity.json", &unnamed_product)]))
+        .expect("the host is the product, whatever the locale calls it");
+    assert_eq!(d.platform, "gemini");
+}

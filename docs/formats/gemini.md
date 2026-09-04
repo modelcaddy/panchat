@@ -47,8 +47,13 @@ The path is localized. A Greek export writes
 `Takeout/Η δραστηριότητά μου/Εφαρμογές Gemini/Ηδραστηριότητάμου.json`, and every other Google
 product in the same download writes its own `MyActivity.json` with the same record shape. **So the
 filename identifies nothing**, which is why detection here tests the records instead: an array of
-activity rows, at least one of which names Gemini or Bard in `header`, `products`, or `titleUrl`.
-Claiming another product's file would turn somebody's search history into a chat transcript.
+activity rows, at least one of which either **names** Gemini or Bard in `header` or `products`, or
+carries a `titleUrl` whose **host** is `gemini.google.com`.
+
+Narrow on purpose. Matching the product name anywhere in the URL is the obvious rule and it is
+wrong: a Search record for the word "gemini" carries it in the query string, so that rule turns the
+search history of anyone who has ever looked the product up into their chat history. Claiming
+another product's file is the one detection mistake here with a real cost.
 
 **A large account is split across several downloads.** Takeout numbers them —
 `takeout-<timestamp>-001.zip`, `-002.zip` — and what people do with several downloads is put them

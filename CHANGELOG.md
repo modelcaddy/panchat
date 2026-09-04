@@ -42,6 +42,10 @@ cost us, is recorded per source:
 - **[WHY.md](WHY.md)** — why the parsing layer is open while the product on top of it is not, who
   pays for this, and what actually helps. Written to be read by someone who has never seen the code,
   and to be the source of a landing page.
+- **Gemini activity is read from every matching file, not the first one found.** Takeout splits a
+  large account across numbered downloads. This crate already carries the scar of an adapter that
+  read one file and reported the 100 conversations it found out of 1,285, with no error; the same
+  shape of mistake was available here.
 - **A folder of archives is read as one export.** Google Takeout splits a large account across
   numbered downloads, and what somebody does with several downloads is put them in one folder.
   Every archive in it is a blob as far as the directory walk is concerned, so until now that folder

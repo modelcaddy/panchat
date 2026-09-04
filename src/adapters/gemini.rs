@@ -85,15 +85,26 @@ impl Adapter for Gemini {
     }
 
     fn detect(&self, files: &[ExportFile]) -> Option<Detection> {
-        let (_, records) = activity_file(files)?;
+        let found = activity_files(files);
+        if found.is_empty() {
+            return None;
+        }
 
-        let total = records.len();
-        let conversational = records.iter().filter(|r| is_conversational(r)).count();
+        let total: usize = found.iter().map(|(_, r)| r.len()).sum();
+        let conversational = found
+            .iter()
+            .flat_map(|(_, r)| r.iter())
+            .filter(|r| is_conversational(r))
+            .count();
         // A file of Gemini activity with nothing conversational in it is still
         // this adapter's file — saying so beats handing the user "unrecognised".
         let confidence = if conversational > 0 { 0.95 } else { 0.75 };
 
-        let mut notes = vec![format!("{total} activity record(s)")];
+        let mut notes = Vec::new();
+        if found.len() > 1 {
+            notes.push(format!("{} activity file(s)", found.len()));
+        }
+        notes.push(format!("{total} activity record(s)"));
         if conversational < total {
             notes.push(format!(
                 "{} of them carry an exchange; the rest are other Gemini activity",
@@ -110,9 +121,14 @@ impl Adapter for Gemini {
     }
 
     fn parse(&self, files: &[ExportFile], warnings: &mut Warnings) -> Result<Document, Error> {
-        let (path, records) = activity_file(files).ok_or_else(|| {
-            Error::Malformed("no Gemini Apps activity file in this export".into())
-        })?;
+        let found = activity_files(files);
+        if found.is_empty() {
+            return Err(Error::Malformed(
+                "no Gemini Apps activity file in this export".into(),
+            ));
+        }
+        let paths: Vec<&str> = found.iter().map(|(p, _)| p.as_str()).collect();
+        let records: Vec<&Value> = found.iter().flat_map(|(_, r)| r.iter()).collect();
 
         let mut doc = Document::new(Source::new(PLATFORM, VARIANT_V1).with_variant_version(1));
 
@@ -130,7 +146,7 @@ impl Adapter for Gemini {
         let mut skipped = 0usize;
         let mut skipped_kinds: Vec<String> = Vec::new();
 
-        for record in &records {
+        for record in records {
             if !is_conversational(record) {
                 skipped += 1;
                 let kind = activity_kind(record);
@@ -188,38 +204,48 @@ impl Adapter for Gemini {
 
         doc.x.insert(
             "x-panchat".into(),
-            serde_json::json!({ "gemini_activity_file": path }),
+            serde_json::json!({ "gemini_activity_files": paths }),
         );
         Ok(doc)
     }
 }
 
-/// The Gemini slice of a Takeout activity log, parsed.
+/// Every Gemini slice of a Takeout activity log, parsed, in path order.
 ///
 /// Found by shape, never by name: the file is `MyActivity.json` in English and
-/// something else entirely in Greek, and the same filename is used by every
-/// other Google product in the same download. What identifies it is an array of
+/// something else entirely in Greek, and every other Google product in the same
+/// download writes a file of that name too. What identifies it is an array of
 /// activity records naming Gemini as the product.
-fn activity_file(files: &[ExportFile]) -> Option<(String, Vec<Value>)> {
-    for file in files {
-        if !file.loaded || !file.lower_path().ends_with(".json") {
-            continue;
-        }
-        let Ok(Value::Array(records)) = serde_json::from_slice::<Value>(&file.bytes) else {
-            continue;
-        };
-        // Sampled rather than scanned. `detect` runs for every adapter on every
-        // input, and an activity log can hold hundreds of thousands of rows.
-        let sample = &records[..records.len().min(20)];
-        if sample.is_empty() || !sample.iter().all(is_activity_record) {
-            continue;
-        }
-        if !sample.iter().any(names_gemini) {
-            continue;
-        }
-        return Some((file.path.clone(), records));
-    }
-    None
+///
+/// **Every** matching file, not the first. Takeout splits a large account
+/// across numbered downloads, and this crate already carries the scar of an
+/// adapter that read one file and reported the 100 conversations it found out
+/// of the 1,285 that were there.
+fn activity_files(files: &[ExportFile]) -> Vec<(String, Vec<Value>)> {
+    let mut out: Vec<(String, Vec<Value>)> = files
+        .iter()
+        .filter(|f| f.loaded && f.lower_path().ends_with(".json"))
+        .filter_map(|f| {
+            let Ok(Value::Array(records)) = serde_json::from_slice::<Value>(&f.bytes) else {
+                return None;
+            };
+            // Sampled rather than scanned. `detect` runs for every adapter on
+            // every input, and an activity log can hold hundreds of thousands
+            // of rows.
+            let sample = &records[..records.len().min(20)];
+            if sample.is_empty() || !sample.iter().all(is_activity_record) {
+                return None;
+            }
+            if !sample.iter().any(names_gemini) {
+                return None;
+            }
+            Some((f.path.clone(), records))
+        })
+        .collect();
+    // Sorted, so a document does not depend on the order a filesystem or an
+    // archive happened to hand the files over.
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
 }
 
 /// A row of a Google activity log, whatever product it belongs to.
@@ -232,6 +258,9 @@ fn is_activity_record(v: &Value) -> bool {
 
 /// Whether this row belongs to Gemini rather than to Search, YouTube, or any
 /// other product sharing the same download and the same filename.
+///
+/// Claiming another product's file is the one detection mistake here with a
+/// real cost, so the test is narrow on purpose.
 fn names_gemini(v: &Value) -> bool {
     let header = v.get("header").and_then(Value::as_str).unwrap_or_default();
     let products = v
@@ -244,12 +273,34 @@ fn names_gemini(v: &Value) -> bool {
                 .join(" ")
         })
         .unwrap_or_default();
-    let url = v
-        .get("titleUrl")
+    // Matched only where Google *names the product*. Deliberately not matched
+    // anywhere in `titleUrl` as text: a Search record for the word "gemini"
+    // carries it in the query string, and a rule that reads the whole URL turns
+    // somebody's search history into their chat history.
+    let named = format!("{header} {products}").to_lowercase();
+    if PRODUCT_MARKERS.iter().any(|m| named.contains(m)) {
+        return true;
+    }
+    // A link to Gemini's own host is the other honest marker, and the one that
+    // survives a locale this adapter cannot read.
+    v.get("titleUrl")
         .and_then(Value::as_str)
+        .is_some_and(on_gemini_host)
+}
+
+/// Whether a URL's host is Gemini's own, rather than a URL that merely mentions
+/// it. Compared on the host alone, so `google.com/search?q=gemini` does not
+/// pass and `https://gemini.google.com/app/c/x` does.
+fn on_gemini_host(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    let after_scheme = lower.split_once("://").map(|(_, r)| r).unwrap_or(&lower);
+    let host = after_scheme
+        .split(['/', '?', '#'])
+        .next()
         .unwrap_or_default();
-    let haystack = format!("{header} {products} {url}").to_lowercase();
-    PRODUCT_MARKERS.iter().any(|m| haystack.contains(m))
+    // A userinfo segment can put anything in front of the real host.
+    let host = host.rsplit('@').next().unwrap_or(host);
+    host == "gemini.google.com" || host == "bard.google.com"
 }
 
 /// Whether this record is an exchange, rather than one of the other things
@@ -311,7 +362,7 @@ fn response_html(v: &Value) -> String {
 /// the chat. Query and fragment are cut so the same chat does not become two.
 fn conversation_pointer(v: &Value) -> Option<String> {
     let url = v.get("titleUrl").and_then(Value::as_str)?;
-    if !url.to_lowercase().contains("gemini.google.com") {
+    if !on_gemini_host(url) {
         return None;
     }
     let path = url.split(['?', '#']).next().unwrap_or(url);
