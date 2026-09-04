@@ -39,6 +39,9 @@ cost us, is recorded per source:
   localized. See [docs/formats/gemini.md](docs/formats/gemini.md) — including the warning that this
   shape was reconstructed from twenty other parsers rather than read from an export, and the list of
   what is still unconfirmed.
+- **[WHY.md](WHY.md)** — why the parsing layer is open while the product on top of it is not, who
+  pays for this, and what actually helps. Written to be read by someone who has never seen the code,
+  and to be the source of a landing page.
 - **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
   and in what order now has an answer in the repository rather than in the maintainer's head.
 - **[TRADEMARK.md](TRADEMARK.md)** — what the license does not cover, which is the names. Forking is

@@ -142,6 +142,12 @@ vendor's own concepts live under a namespaced `x-` key rather than changing the 
 3. Consumers must preserve fields they do not recognise.
 4. Nothing app-specific in the core namespace.
 
+## Why this is open, and what would help
+
+[WHY.md](WHY.md) is the longer answer: what these exports actually lose, who is behind this and
+where the money is, and the four things that help — the first of which needs no code and is worth
+more than the rest.
+
 ## Contributing
 
 Two vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
