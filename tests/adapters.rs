@@ -684,3 +684,226 @@ fn export_shape_is_recognised_without_the_obvious_markers() {
     let d = panchat::detect(&claude).expect("claude detected");
     assert_eq!(d.variant_version, 2, "no directories, but the v2 memories");
 }
+
+// ---------------------------------------------------------------------------
+// Gemini — Google Takeout's activity log.
+//
+// The export that most tests what this representation is for, because it is not
+// a conversation export. Google hands over the same activity log that records a
+// search, filtered to one product: no conversation object, no id, no model, no
+// thread. What matters here is that every one of those absences is reported
+// rather than papered over, and that nothing is invented to fill them.
+// ---------------------------------------------------------------------------
+
+const GEMINI: &str = include_str!("fixtures/gemini_myactivity.json");
+const TAKEOUT_SEARCH: &str = include_str!("fixtures/takeout_search_myactivity.json");
+
+fn gemini_files() -> Vec<ExportFile> {
+    // The real path is localized — Greek exports name neither directory in
+    // English — so the name here is deliberately not the one Google writes.
+    files(&[("My Activity/Gemini Apps/renamed-by-the-user.json", GEMINI)])
+}
+
+#[test]
+fn gemini_is_detected_by_shape_not_by_filename() {
+    let d = panchat::detect(&gemini_files()).expect("gemini activity detected");
+    assert_eq!(d.platform, "gemini");
+    assert_eq!(d.variant, "takeout_myactivity_v1");
+    assert_eq!(d.variant_version, 1);
+}
+
+#[test]
+fn gemini_does_not_claim_another_products_activity_log() {
+    // Every Google product writes `MyActivity.json` into the same download,
+    // with the same record shape. Claiming one of those would turn somebody's
+    // search history into a chat transcript.
+    let other = files(&[("My Activity/Search/MyActivity.json", TAKEOUT_SEARCH)]);
+    assert!(
+        panchat::detect(&other).is_none(),
+        "an activity log for another product is not this adapter's file"
+    );
+}
+
+#[test]
+fn gemini_groups_only_on_the_pointer_google_supplies() {
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+
+    let threaded = doc
+        .conversations
+        .iter()
+        .find(|c| c.id == "invented-thread-1")
+        .expect("records sharing a titleUrl belong to one conversation");
+    assert_eq!(
+        threaded.messages.len(),
+        4,
+        "two exchanges, each a prompt and an answer"
+    );
+    assert_eq!(
+        threaded.messages[0].text(),
+        "Explain the first half of the made-up thing",
+        "and in the order they were said, not the order Takeout writes them, \
+         which is newest first"
+    );
+
+    // Everything else stands alone. Stitching rows together on a time gap is
+    // what several tools in the wild do, and it invents a conversation the
+    // export does not contain.
+    assert_eq!(
+        doc.conversations.len(),
+        3,
+        "one threaded conversation, and the two records with no pointer left \
+         standing alone"
+    );
+}
+
+#[test]
+fn gemini_keeps_the_whole_answer_and_keeps_it_as_html() {
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+    let threaded = doc
+        .conversations
+        .iter()
+        .find(|c| c.id == "invented-thread-1")
+        .unwrap();
+    let answer = threaded.messages[1].text();
+
+    assert!(
+        answer.contains("The first half does not exist.")
+            && answer.contains("Nor does this list item."),
+        "a long answer arrives as several html items and all of them are the \
+         answer; taking the first is the commonest way to lose half of one: {answer}"
+    );
+    assert!(
+        answer.contains("<p>") && answer.contains("<ul>"),
+        "the vendor stored HTML, so HTML is what a consumer gets — converting \
+         it to Markdown would be a reformat, and producers must not reformat: {answer}"
+    );
+}
+
+#[test]
+fn gemini_reads_a_localized_record() {
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+    let japanese = doc
+        .conversations
+        .iter()
+        .find(|c| c.messages.iter().any(|m| m.text().contains("作り話")))
+        .expect("a Japanese record is still a record");
+
+    assert_eq!(
+        japanese.messages[0].text(),
+        "これは作り話です",
+        "the prefix Google puts in front of the user's words is translated too"
+    );
+}
+
+#[test]
+fn gemini_says_what_it_did_not_read() {
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+
+    let skipped = doc
+        .warnings
+        .iter()
+        .find(|w| w.code == WarningCode::UnhandledExportSection)
+        .expect("canvas and draft-selection records are activity, and are not exchanges");
+    assert_eq!(skipped.severity, Severity::Lossy, "they were in the export");
+    assert_eq!(skipped.count, 2);
+    let detail = skipped.detail.as_deref().unwrap_or_default();
+    assert!(
+        detail.contains("Created") && detail.contains("Selected"),
+        "and the user is told which kinds, in the vendor's own words: {detail}"
+    );
+
+    assert!(
+        doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::NoModelIdentity && w.severity == Severity::Info),
+        "an activity log never recorded a model, so nothing was lost — info, not lossy"
+    );
+    assert!(
+        doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::SynthesizedId),
+        "there are no ids in this format and the document must admit it"
+    );
+    assert!(
+        doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::AttachmentNotIncluded && w.severity == Severity::Lossy),
+        "the file was attached and its bytes are not in the download"
+    );
+}
+
+#[test]
+fn gemini_synthesized_ids_survive_a_re_export() {
+    // Takeout prepends new activity, so every index shifts when an account
+    // exports again. An id derived from position would re-import the whole
+    // history as new; one derived from the record's own content does not.
+    let first = panchat::normalize(&gemini_files()).unwrap();
+
+    let mut records: Vec<serde_json::Value> = serde_json::from_str(GEMINI).unwrap();
+    records.insert(
+        0,
+        serde_json::json!({
+            "header": "Gemini Apps",
+            "title": "Prompted Something asked after the first export",
+            "time": "2026-08-01T10:00:00.000Z",
+            "products": ["Gemini Apps"],
+            "safeHtmlItem": [{ "html": "<p>An invented later answer.</p>" }]
+        }),
+    );
+    let later = panchat::normalize(&files(&[(
+        "MyActivity.json",
+        &serde_json::to_string(&records).unwrap(),
+    )]))
+    .unwrap();
+
+    for old in &first.conversations {
+        assert!(
+            later.conversations.iter().any(|c| c.id == old.id),
+            "{} changed id between two exports of the same account",
+            old.id
+        );
+    }
+    assert_eq!(later.conversations.len(), first.conversations.len() + 1);
+}
+
+#[test]
+fn gemini_never_invents_a_title() {
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+    assert!(
+        doc.conversations.iter().all(|c| c.title.is_none()),
+        "Takeout titles nothing, and a title the user never wrote is a small \
+         lie that survives every later copy"
+    );
+}
+
+#[test]
+fn gemini_keeps_the_record_it_could_not_fully_represent() {
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+    let raw = doc
+        .conversations
+        .iter()
+        .filter_map(|c| c.raw.as_ref())
+        .count();
+    assert_eq!(
+        raw,
+        doc.conversations.len(),
+        "every conversation carries the vendor's own rows, so anything this \
+         version failed to model is still there"
+    );
+}
+
+#[test]
+fn gemini_populates_an_active_path_it_does_not_need() {
+    // An activity log cannot branch. The path is filled in anyway so a consumer
+    // needs one code path rather than an empty-case branch per vendor.
+    let doc = panchat::normalize(&gemini_files()).unwrap();
+    for c in &doc.conversations {
+        assert_eq!(
+            c.active_path.len(),
+            c.messages.len(),
+            "{} left a consumer to guess the order",
+            c.id
+        );
+        assert!(c.off_path_messages().is_empty());
+    }
+}

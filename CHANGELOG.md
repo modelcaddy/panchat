@@ -26,6 +26,19 @@ cost us, is recorded per source:
   The delivery changed, not the shape, so an export that arrives this way is still
   `official_export_v2`. See [docs/formats/chatgpt.md](docs/formats/chatgpt.md), which also records
   that this layout has been reported rather than observed here.
+- **Gemini, via Google Takeout.** The third platform, and the one that most tests what this
+  representation is for: Google does not export conversations, it exports *My Activity* — the same
+  log that records a search — filtered to one product. So there is no conversation object, no id,
+  no title, no model, and no thread. Every one of those absences is reported rather than papered
+  over, and the two temptations are refused: rows are **not** stitched into conversations on a time
+  gap, because that invents a conversation Google never recorded, and the answer's HTML is **not**
+  converted to Markdown, because a producer must not reformat what a vendor stored. Grouping uses
+  `titleUrl` where Google supplies one; ids are derived from the record's own content so a
+  re-export de-duplicates rather than doubling. Detection tests the records, never the filename:
+  every Google product writes its own `MyActivity.json` into the same download, and the path is
+  localized. See [docs/formats/gemini.md](docs/formats/gemini.md) — including the warning that this
+  shape was reconstructed from twenty other parsers rather than read from an export, and the list of
+  what is still unconfirmed.
 - **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
   and in what order now has an answer in the repository rather than in the maintainer's head.
 - **[TRADEMARK.md](TRADEMARK.md)** — what the license does not cover, which is the names. Forking is

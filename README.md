@@ -48,6 +48,7 @@ panchat ~/Downloads/chatgpt-export --format json | jq '.conversations | length'
 |---|---|---|
 | ChatGPT | `conversations.json`, or sharded `conversations-000.json` … plus `export_manifest.json` | Conversations, branch graph, per-message model, voice transcripts, attachments (resolved to the bytes the export ships) |
 | Claude | `conversations.json` + `projects.json` / `projects/`, `memories.json`, `design_chats/` | Conversations, Claude Design chats, projects and their documents, memories, tool calls, attachments (referenced) |
+| Gemini | Google Takeout, `My Activity/Gemini Apps/MyActivity.json` | Exchanges, attachments (referenced). An activity log rather than a chat export — see below |
 
 ## Input
 
@@ -87,7 +88,8 @@ document says which generation it came from —
 
 — and a consumer asks `variant_version >= 2` rather than matching strings. What each one looked like
 when it was read, and what that cost, is logged per source — [ChatGPT](docs/formats/chatgpt.md),
-[Claude](docs/formats/claude.md) — and every change to this crate is in [CHANGELOG.md](CHANGELOG.md).
+[Claude](docs/formats/claude.md), [Gemini](docs/formats/gemini.md) — and every change to this crate
+is in [CHANGELOG.md](CHANGELOG.md).
 Both old and new layouts stay readable: a download that has been sitting in someone's Downloads
 folder for a year must not become unreadable because the vendor moved on.
 
@@ -95,16 +97,21 @@ folder for a year must not become unreadable because the vendor moved on.
 
 The point of this table is that no vendor publishes it.
 
-| | ChatGPT | Claude |
-|---|---|---|
-| Branch / regeneration history | present, preserved | not in export |
-| Per-message model identity | present | **absent from the format** |
-| Attachment bytes | shipped for uploads and generated images, referenced only for expired voice assets | not included, referenced only |
-| Tool / code-interpreter payloads | partially typed, rest preserved verbatim | typed (`tool_use` / `tool_result`) |
-| Reasoning turns | present as `thoughts` / `reasoning_recap`, kept verbatim, never merged into the answer | not in export |
-| Timestamps | float unix seconds | ISO 8601 |
-| Project membership | via template/gizmo id, name not included | full, with name |
-| Side-cars | none in the export | projects and their docs, memories; account and login history skipped on purpose |
+| | ChatGPT | Claude | Gemini |
+|---|---|---|---|
+| What the vendor exports | conversations | conversations | **an activity log**, filtered to one product |
+| Conversation grouping | present | present | **only sometimes** — a `titleUrl` on some rows and nothing on others |
+| Conversation title | present | present | **none**, and never synthesized |
+| Branch / regeneration history | present, preserved | not in export | not in export |
+| Per-message model identity | present | **absent from the format** | **absent from the format** |
+| Attachment bytes | shipped for uploads and generated images, referenced only for expired voice assets | not included, referenced only | not included, referenced only |
+| Tool / code-interpreter payloads | partially typed, rest preserved verbatim | typed (`tool_use` / `tool_result`) | not in export |
+| Reasoning turns | present as `thoughts` / `reasoning_recap`, kept verbatim, never merged into the answer | not in export | not in export |
+| Answer format | Markdown, as stored | Markdown, as stored | **HTML**, passed through unconverted |
+| Timestamps | float unix seconds | ISO 8601 | ISO 8601 |
+| Stable ids | vendor's own | vendor's own | **none** — derived from the record so a re-export de-duplicates |
+| Project membership | via template/gizmo id, name not included | full, with name | not in export |
+| Side-cars | none in the export | projects and their docs, memories; account and login history skipped on purpose | other Gemini activity — canvas, images, feedback — counted and reported |
 
 ## Output formats
 
