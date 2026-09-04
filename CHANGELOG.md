@@ -11,6 +11,33 @@ cost us, is recorded per source:
 - [ChatGPT export log](docs/formats/chatgpt.md)
 - [Claude export log](docs/formats/claude.md)
 
+## Unreleased
+
+### Added
+
+- **An archive of archives is read as the export inside it.** A large enough account does not
+  receive one zip; it receives a zip of part archives, and read flat that is a download containing
+  no export at all. One level of nesting is now followed, and exactly one, with the parts merged as
+  though each had been unpacked into the same folder — so a split export and the folder it unpacks
+  to still produce the same document, which is the property the whole archive path exists for.
+  Whether to look inside is decided by shape rather than by a filename: an archive that already
+  yielded a JSON array holds its payload, and is left alone. That is what keeps a zip the *user*
+  uploaded — 2026 exports ship those bytes — from being opened and sprayed across their export.
+  The delivery changed, not the shape, so an export that arrives this way is still
+  `official_export_v2`. See [docs/formats/chatgpt.md](docs/formats/chatgpt.md), which also records
+  that this layout has been reported rather than observed here.
+- **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
+  and in what order now has an answer in the repository rather than in the maintainer's head.
+
+### Changed
+
+- **The decompression budget is shared across a whole read** rather than granted afresh to each
+  archive, since several archives handed over together are one export and the budget is a statement
+  about memory. An entry that would take a read past it now names itself in the error, because with
+  parts inside parts "the archive" is ambiguous.
+- **`homepage` and `documentation` on the crate.** Both were empty on crates.io, which reads as a
+  project with nowhere to go.
+
 ## 0.3.0 — 2026-08-27
 
 ### Added
