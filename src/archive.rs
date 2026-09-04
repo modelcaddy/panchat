@@ -201,7 +201,10 @@ pub(crate) fn holds_a_json_array(files: &[ExportFile]) -> bool {
 ///
 /// Two parts may each carry a file of the same name — a manifest, say. Both are
 /// kept: dropping one would be this crate deciding which of two things a vendor
-/// shipped is the real one, and nothing here knows that.
+/// shipped is the real one, and nothing here knows that. What an *adapter* then
+/// does with two files of one name is the adapter's problem, and the ChatGPT
+/// one resolves a manifest entry to every file matching it rather than the
+/// first.
 fn expand_parts<R: Read + Seek>(
     archive: &mut zip::ZipArchive<R>,
     out: &mut Vec<ExportFile>,
@@ -212,17 +215,31 @@ fn expand_parts<R: Read + Seek>(
     // Collected before splicing, since splicing moves every later index.
     let mut expanded: Vec<(usize, Vec<ExportFile>)> = Vec::new();
     for (index, slot) in unread {
+        let path = out[*slot].path.clone();
+        // Both tests, and the extension is the load-bearing one. Magic alone
+        // says "this is a zip", and half the things people attach to chatbots
+        // are zips: every .docx, .xlsx, .pptx, .odt, .epub and .jar is one, and
+        // a 2026 ChatGPT export ships those bytes under an opaque `file-<id>.dat`.
+        // Expanding on magic alone replaced somebody's CV with the XML inside
+        // it, deleted the attachment the conversation pointed at, and merged
+        // their document's internals into the export root.
+        //
+        // So: a part archive is a file the *download* is packaged in, and
+        // vendors present those as `.zip`. Anything else carrying zip magic is
+        // content, and content stays closed.
+        if !path.to_ascii_lowercase().ends_with(".zip") {
+            continue;
+        }
         let mut entry = archive.by_index(*index).map_err(zip_error)?;
         let mut head = [0u8; 4];
-        // A part archive is recognised by its magic, not by being called `.zip`.
         // Reading four bytes off the front of an entry is nearly free even when
-        // it is compressed.
+        // it is compressed — and a `.zip` that is not one should not be opened
+        // on the strength of its name.
         let peeked = entry.read(&mut head).unwrap_or(0);
         if peeked < 4 || !crate::is_zip(&head) {
             continue;
         }
 
-        let path = out[*slot].path.clone();
         let mut bytes = head[..peeked].to_vec();
         let read = entry
             .take(budget.saturating_sub(peeked as u64) + 1)

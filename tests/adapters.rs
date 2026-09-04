@@ -924,6 +924,19 @@ fn takeout_exported_as_html_says_which_mistake_was_made() {
         message.contains("JSON") && message.contains("takeout.google.com"),
         "the error has to say what to do instead: {message}"
     );
+
+    // And it has to survive a locale. Everything below the wrapper folder is
+    // translated, so a rule that looks for the English word "activity" helps
+    // only the people who were least likely to be confused.
+    let greek = files(&[(
+        "Takeout/Η δραστηριότητά μου/Εφαρμογές Gemini/Ηδραστηριότητάμου.html",
+        "<html><body>μια απόδοση δραστηριότητας</body></html>",
+    )]);
+    let greek_message = panchat::normalize(&greek).unwrap_err().to_string();
+    assert!(
+        greek_message.contains("JSON") && greek_message.contains("takeout.google.com"),
+        "a Greek download pays the same second export request: {greek_message}"
+    );
 }
 
 #[test]
@@ -1021,4 +1034,110 @@ fn gemini_still_claims_a_record_whose_only_marker_is_the_link() {
     let d = panchat::detect(&files(&[("MyActivity.json", &unnamed_product)]))
         .expect("the host is the product, whatever the locale calls it");
     assert_eq!(d.platform, "gemini");
+}
+
+#[test]
+fn gemini_ids_stay_unique_when_two_records_hash_the_same() {
+    // A derived id is a hash of time and title, and a record with no time
+    // hashes on its title alone — so the same short question asked twice is
+    // enough to collide. SPEC: ids are unique within a document, and consumers
+    // are told to key on (platform, conversation.id).
+    let twins = serde_json::json!([
+        {
+            "header": "Gemini Apps",
+            "title": "Prompted the same short question",
+            "products": ["Gemini Apps"],
+            "safeHtmlItem": [{ "html": "<p>One invented answer.</p>" }]
+        },
+        {
+            "header": "Gemini Apps",
+            "title": "Prompted the same short question",
+            "products": ["Gemini Apps"],
+            "safeHtmlItem": [{ "html": "<p>A different invented answer.</p>" }]
+        }
+    ])
+    .to_string();
+
+    let doc = panchat::normalize(&files(&[("MyActivity.json", &twins)])).unwrap();
+    let ids: Vec<&str> = doc.conversations.iter().map(|c| c.id.as_str()).collect();
+    assert_eq!(ids.len(), 2);
+    assert_ne!(ids[0], ids[1], "two conversations, two ids: {ids:?}");
+
+    let message_ids: Vec<&str> = doc
+        .conversations
+        .iter()
+        .flat_map(|c| c.messages.iter().map(|m| m.id.as_str()))
+        .collect();
+    let mut unique = message_ids.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), message_ids.len(), "{message_ids:?}");
+
+    assert!(
+        doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::SynthesizedId && w.severity == Severity::Lossy),
+        "and a suffixed id is exactly the one that will not line up with the \
+         next export of the same account, so it is reported"
+    );
+}
+
+#[test]
+fn gemini_takes_a_conversations_times_from_the_records_that_have_them() {
+    // A record with no `time` sorts to the front. Reading the bounds off
+    // position would blank the start of a conversation that is perfectly well
+    // timestamped, and report it as having no timestamps at all.
+    let mixed = serde_json::json!([
+        {
+            "header": "Gemini Apps",
+            "title": "Prompted the timed half",
+            "titleUrl": "https://gemini.google.com/app/c/invented-thread-7",
+            "time": "2026-07-20T15:20:00.000Z",
+            "products": ["Gemini Apps"],
+            "safeHtmlItem": [{ "html": "<p>An invented answer.</p>" }]
+        },
+        {
+            "header": "Gemini Apps",
+            "title": "Prompted the untimed half",
+            "titleUrl": "https://gemini.google.com/app/c/invented-thread-7",
+            "products": ["Gemini Apps"],
+            "safeHtmlItem": [{ "html": "<p>Another invented answer.</p>" }]
+        }
+    ])
+    .to_string();
+
+    let doc = panchat::normalize(&files(&[("MyActivity.json", &mixed)])).unwrap();
+    let c = &doc.conversations[0];
+    assert!(
+        c.created_at.is_some() && c.updated_at.is_some(),
+        "one untimed row must not blank a conversation that has a time"
+    );
+    assert!(
+        !doc.warnings
+            .iter()
+            .any(|w| w.code == WarningCode::MissingTimestamps),
+        "and must not report the conversation as having none"
+    );
+}
+
+#[test]
+fn gemini_reports_a_wholly_untimed_conversation_as_info() {
+    // When there really is no time anywhere, nothing was lost — the row never
+    // had one — so it is `info`, as the same condition is for every other
+    // vendor here.
+    let untimed = serde_json::json!([{
+        "header": "Gemini Apps",
+        "title": "Prompted a question with no timestamp at all",
+        "products": ["Gemini Apps"],
+        "safeHtmlItem": [{ "html": "<p>An invented answer.</p>" }]
+    }])
+    .to_string();
+
+    let doc = panchat::normalize(&files(&[("MyActivity.json", &untimed)])).unwrap();
+    let w = doc
+        .warnings
+        .iter()
+        .find(|w| w.code == WarningCode::MissingTimestamps)
+        .expect("a conversation with no times at all says so");
+    assert_eq!(w.severity, Severity::Info);
 }

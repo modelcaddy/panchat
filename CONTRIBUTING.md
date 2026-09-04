@@ -1,6 +1,6 @@
 # Contributing
 
-The useful thing you can do here is **teach it to read one more export**. Two vendors is a tool;
+The useful thing you can do here is **teach it to read one more export**. Three vendors is a tool;
 enough vendors is infrastructure, and no one person has an account on every platform or a copy of
 every export shape. That is the part of this project that only contributors can supply.
 
@@ -9,8 +9,8 @@ the patch that follows it, and it is the thing we cannot get any other way.
 
 ## What is most wanted
 
-1. **A new platform.** Gemini, Copilot, Grok, DeepSeek, Perplexity, and the local tools — Open
-   WebUI, LM Studio, Jan, SillyTavern. See "Adding an adapter" below.
+1. **A new platform.** Copilot, Grok, DeepSeek, Perplexity, and the local tools — Open WebUI,
+   LM Studio, Jan, SillyTavern. See "Adding an adapter" below.
 2. **A format-drift report.** Your export no longer parses, or parses wrongly. Open an issue with
    the output of `panchat <your-export> --inspect` and what looked wrong. Do not attach the export.
 3. **A fixture.** A small, synthetic file capturing a shape we do not have. Read "Fixtures and your

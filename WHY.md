@@ -9,7 +9,8 @@
 Millions of people have years of their thinking inside four or five chat products. Every one of
 those products offers an export. Not one of them tells you what the export leaves out.
 
-**panchat reads any of those exports into one shape, and says out loud what each one threw away.**
+**panchat reads those exports into one shape, and says out loud what each one threw away.** Three
+platforms today — ChatGPT, Claude, Gemini — and the list is short for a reason covered below.
 It is Apache-2.0, it is free, and it always will be.
 
 ---
@@ -73,8 +74,12 @@ on faith from a compiled artefact. Here, the whole read path is on the screen, a
 
 **Because nobody can write these parsers alone.** Nobody has an account on every platform, a copy
 of every export generation, or a Japanese Takeout download. There are maybe a dozen products worth
-reading and each one changes on its own schedule. Two vendors is a tool. Enough vendors is
+reading and each one changes on its own schedule. Three vendors is a tool. Enough vendors is
 infrastructure, and infrastructure only ever gets built by more than one person.
+
+The Gemini support here was written without anyone ever holding a Gemini export — reconstructed
+from twenty other people's parsers — and its format log lists six things still unconfirmed. That is
+what doing this alone looks like.
 
 **Because a format is being settled right now, and the hard parts are missing from it.** The Data
 Transfer Initiative has published an AI conversation schema with a vendor implementing it, and

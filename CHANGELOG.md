@@ -66,6 +66,35 @@ cost us, is recorded per source:
   would propagate it into every derivative work forever. Section 4(c), which retains trademark
   notices found in the source form, is the mechanism that actually fits.
 
+### Fixed
+
+- **An attachment that is itself a zip is no longer opened and thrown away.** Nesting was followed
+  on zip magic alone, and half of what people attach to a chatbot is a zip container — every
+  `.docx`, `.xlsx`, `.pptx`, `.odt`, `.epub` and `.jar` — shipped by a 2026 ChatGPT export under an
+  opaque `file-<id>.dat`. So somebody's CV was replaced by the XML inside it, the attachment the
+  conversation pointed at vanished, and their document's internals were merged into the export
+  root. A part archive is now recognised by being presented as one, `.zip`, **and** by its magic:
+  packaging is opened, content stays shut. Found by adversarial review of this branch, which
+  reproduced it.
+- **ChatGPT: a manifest entry resolves to every file with that name, not the first.** Now that part
+  archives merge into one root, a vendor numbering shards per part rather than globally ships a
+  `conversations-000.json` in each — and taking the first is how the other part's conversations
+  disappear without a warning.
+- **Gemini: derived ids stay unique within a document.** An id is a hash of `time` and `title`, and
+  a record with no `time` hashes on its title alone, so the same short question asked twice
+  collided — producing two conversations with one id, and duplicate message ids, in violation of
+  the specification and of the key consumers are told to use. The later one is disambiguated and
+  reported, because a suffixed id is exactly the one that will not line up with the next export.
+- **Gemini: a conversation's times come from the records that have them.** A row with no `time`
+  sorts to the front, so reading the bounds off position blanked the start of a conversation that
+  was perfectly well timestamped and reported it as having no timestamps at all.
+- **Gemini: `missing_timestamps` is `info`, as it is for every other vendor here**, and fires only
+  when no record in a conversation carries a time. A row that never had a timestamp lost nothing.
+- **The HTML-download advice survives a locale.** It keyed off the ASCII word `activity` in the
+  path — but everything below Takeout's wrapper folder is translated, so the message reached only
+  the English-locale users least likely to need it, and everyone else still paid the second export
+  request it exists to prevent.
+
 ### Changed
 
 - **The decompression budget is shared across a whole read** rather than granted afresh to each

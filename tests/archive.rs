@@ -419,3 +419,46 @@ fn a_folder_holding_an_unpacked_export_ignores_an_archive_beside_it() {
         1
     );
 }
+
+#[test]
+fn an_attachment_that_is_itself_a_zip_container_is_not_opened() {
+    // Half of what people attach to a chatbot is a zip: every .docx, .xlsx,
+    // .pptx, .odt, .epub and .jar is one, and a 2026 ChatGPT export ships those
+    // bytes under an opaque `file-<id>.dat`. Expanding on zip magic alone
+    // replaced somebody's document with the XML inside it, deleted the
+    // attachment the conversation pointed at, and merged their private file's
+    // internals into the export root.
+    let docx = zip_of(&[
+        ("[Content_Types].xml", b"<Types/>"),
+        ("word/document.xml", b"<w:document>invented</w:document>"),
+    ]);
+    let conversations = zip_of(&[("conversations-000.json", SHARD_A.as_bytes())]);
+    let outer = zip_of(&[
+        ("Conversations__2026-08-20-part-000.zip", &conversations),
+        ("file-abc123.dat", &docx),
+    ]);
+
+    let files = panchat::archive::read_zip_bytes(&outer).unwrap();
+    let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+
+    let attachment = files
+        .iter()
+        .find(|f| f.path == "file-abc123.dat")
+        .expect("the attachment must still be there for a conversation to point at");
+    assert!(!attachment.loaded);
+    assert!(
+        !paths.iter().any(|p| p.contains("word/document.xml")),
+        "and nothing from inside it belongs in the export root: {paths:?}"
+    );
+    assert!(paths.contains(&"conversations-000.json"), "{paths:?}");
+}
+
+#[test]
+fn a_part_archive_is_recognised_by_both_its_name_and_its_magic() {
+    // A `.zip` that is not one should not be opened on the strength of a name
+    // either. Belt and braces, in both directions.
+    let not_really = zip_of(&[("Conversations__part-000.zip", b"PK not a zip after all")]);
+    let files = panchat::archive::read_zip_bytes(&not_really).unwrap();
+    let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(paths, vec!["Conversations__part-000.zip"], "{paths:?}");
+}

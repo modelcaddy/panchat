@@ -57,7 +57,7 @@ read the same. The CLI reads archives out of the box; as a library it is the `zi
 default so the dependency is yours to opt into:
 
 ```toml
-panchat = { version = "0.2", features = ["zip"] }
+panchat = { version = "0.3", features = ["zip"] }
 ```
 
 An archive is recognised by its contents rather than its name, and the vendor's wrapper folder is
@@ -150,7 +150,7 @@ more than the rest.
 
 ## Contributing
 
-Two vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
+Three vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
 platform or a copy of every export shape. Adapters arrive as pull requests, and
 [CONTRIBUTING.md](CONTRIBUTING.md) walks through writing one: the trait is four methods, and the
 review bar is about honesty rather than polish — declare what you dropped, and never drop what you

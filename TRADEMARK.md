@@ -10,7 +10,7 @@ The **code** is open. The **names** are not the code.
 
 Everything in this repository is licensed under [Apache-2.0](LICENSE), which lets you use, modify,
 distribute and sell it, including inside something closed. That license deliberately does not give
-you rights in a name: [section 6](https://www.apache.org/licenses/LICENSE-2.0#trademark) grants no
+you rights in a name: [section 6](https://www.apache.org/licenses/LICENSE-2.0#trademarks) grants no
 permission to use the licensor's trade names, trademarks or product names, beyond describing where
 the work came from. This file says what we ask on top of that, and it is short because the ask is
 small.

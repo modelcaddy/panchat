@@ -105,16 +105,27 @@ fn unrecognized(files: &[ExportFile]) -> Error {
             zip.path
         ));
     }
-    // Takeout asks for a format before it builds the download, and the choice
-    // is not obviously load-bearing at the time it is made. HTML is unreadable
-    // here and the user cannot tell that from "unrecognised export" — they have
-    // to request the whole thing again to find out, and Google takes its time.
-    if let Some(html) = files.iter().find(|f| is_activity_html(&f.path)) {
-        return Error::NotRecognized(format!(
-            "{} is Google Takeout's HTML rendering of your activity, which cannot be read. \
-             Request the export again from takeout.google.com with the format set to JSON",
-            html.path
-        ));
+    // The one mistake that costs a second export: a download taken as a
+    // rendering of itself. Takeout asks for a format before it builds anything
+    // and defaults to HTML, and the choice is not obviously load-bearing at the
+    // time it is made. Named only when there is no JSON here to have parsed, so
+    // an export that ships a rendering alongside its data — ChatGPT's does — is
+    // unaffected.
+    let no_json = !files
+        .iter()
+        .any(|f| f.loaded && f.lower_path().ends_with(".json"));
+    if no_json {
+        if let Some(html) = files.iter().find(|f| is_html(&f.path)) {
+            let takeout = files.iter().any(|f| looks_like_takeout(&f.path));
+            let advice = match takeout {
+                true => "Request it again from takeout.google.com with the format set to JSON",
+                false => "Pass the export's JSON file instead",
+            };
+            return Error::NotRecognized(format!(
+                "{} is a rendering of a conversation rather than the data behind it. {advice}",
+                html.path
+            ));
+        }
     }
     if files.iter().all(|f| !f.loaded) {
         return Error::NotRecognized(format!(
@@ -133,17 +144,19 @@ fn unrecognized(files: &[ExportFile]) -> Error {
     ))
 }
 
-/// A Takeout activity file exported as HTML rather than JSON.
-///
-/// Matched on the directory rather than the filename, because the filename is
-/// localized and the directory is too — but a download that has an activity
-/// directory at all and offers only HTML inside it is the one mistake worth
-/// naming.
-fn is_activity_html(path: &str) -> bool {
+fn is_html(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
-    (lower.ends_with(".html") || lower.ends_with(".htm"))
-        && lower.contains("activity")
-        && lower.contains('/')
+    lower.ends_with(".html") || lower.ends_with(".htm")
+}
+
+/// Whether this path looks like it came out of Google Takeout.
+///
+/// Only the wrapper folder is tested, and only in English, because everything
+/// below it is localized — a Greek download names neither the activity
+/// directory nor the file in a way this could match. Getting it wrong costs the
+/// user one sentence of advice, not the error itself.
+fn looks_like_takeout(path: &str) -> bool {
+    path.to_ascii_lowercase().starts_with("takeout/")
 }
 
 /// Local file header, or the end-of-central-directory record of an empty
@@ -224,7 +237,9 @@ fn expand_directory_archives(
     let mut out = Vec::with_capacity(files.len());
     for f in files {
         let full = root.join(&f.path);
-        if !f.loaded && starts_with_zip_magic(&full) {
+        let is_archive =
+            f.path.to_ascii_lowercase().ends_with(".zip") && starts_with_zip_magic(&full);
+        if !f.loaded && is_archive {
             out.extend(
                 archive::read_zip_with(&full, &mut budget).map_err(|e| match e {
                     Error::Malformed(detail) => {
@@ -240,7 +255,11 @@ fn expand_directory_archives(
     Ok(out)
 }
 
-/// Whether the file on disk is an archive, without reading it.
+/// Whether the file on disk really is an archive, without reading it.
+///
+/// Paired with an extension test by every caller, and deliberately so: zip
+/// magic alone is true of every `.docx`, `.xlsx` and `.epub` somebody ever
+/// attached to a conversation, and those are content rather than packaging.
 #[cfg(feature = "zip")]
 fn starts_with_zip_magic(path: &Path) -> bool {
     use std::io::Read;

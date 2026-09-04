@@ -54,10 +54,20 @@ fn asset_id(pointer: &str) -> &str {
 }
 
 fn file_named<'a>(files: &'a [ExportFile], name: &str) -> Option<&'a ExportFile> {
-    files.iter().find(|f| {
-        let lower = f.lower_path();
-        basename(&lower) == name
-    })
+    files_named(files, name).into_iter().next()
+}
+
+/// Every file with this basename, in the order they were handed over.
+///
+/// More than one is a real case now that an export can arrive as several part
+/// archives merged into one root: a vendor numbering shards per part rather
+/// than globally ships a `conversations-000.json` in each. Taking the first is
+/// how the other part's conversations disappear without a warning.
+fn files_named<'a>(files: &'a [ExportFile], name: &str) -> Vec<&'a ExportFile> {
+    files
+        .iter()
+        .filter(|f| basename(&f.lower_path()) == name)
+        .collect()
 }
 
 /// Every file of conversations, in the order they belong in.
@@ -128,9 +138,10 @@ fn shards_from_manifest(files: &[ExportFile]) -> Option<(Vec<&ExportFile>, Vec<S
     let mut missing = Vec::new();
     for name in listed.iter().filter_map(Value::as_str) {
         let lower = name.to_ascii_lowercase();
-        match file_named(files, basename(&lower)) {
-            Some(f) => found.push(f),
-            None => missing.push(name.to_string()),
+        let matches = files_named(files, basename(&lower));
+        match matches.is_empty() {
+            true => missing.push(name.to_string()),
+            false => found.extend(matches),
         }
     }
     Some((found, missing))

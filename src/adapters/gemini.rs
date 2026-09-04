@@ -179,13 +179,40 @@ impl Adapter for Gemini {
         }
 
         let mut synthesized = 0usize;
+        // Ids taken so far, so a derived one cannot collide with a pointer
+        // Google supplied or with another derived one.
+        let mut used: BTreeMap<String, usize> = BTreeMap::new();
         for (pointer, mut records) in grouped {
             sort_by_time(&mut records);
+            used.insert(pointer.clone(), 1);
             let conversation = build(&pointer, &records, warnings);
             doc.conversations.push(conversation);
         }
         for record in standalone {
-            let id = synthesized_id(record);
+            let base = synthesized_id(record);
+            let seen = used.entry(base.clone()).or_insert(0);
+            *seen += 1;
+            // Two records with the same timestamp and title hash the same, and
+            // a record with no timestamp at all hashes on its title alone — so
+            // the same short question asked twice is enough. Ids are unique
+            // within a document, so the later one is made distinct and the
+            // warning says so, because a suffixed id is exactly the one that
+            // will not line up with a later export of the same account.
+            let id = match *seen {
+                1 => base,
+                n => {
+                    let id = format!("{base}-{n}");
+                    warnings.push(
+                        crate::warning::Warning::new(WarningCode::SynthesizedId, Severity::Lossy)
+                            .for_conversation(&id)
+                            .with_detail(
+                                "another record has the same timestamp and title; this id was \
+                                 made unique within the document and will not survive a re-export",
+                            ),
+                    );
+                    id
+                }
+            };
             synthesized += 1;
             let conversation = build(&id, &[record], warnings);
             doc.conversations.push(conversation);
@@ -429,10 +456,20 @@ fn iso(v: &Value) -> Option<String> {
 
 fn build(id: &str, records: &[&Value], warnings: &mut Warnings) -> Conversation {
     let mut conversation = Conversation::new(id);
-    conversation.created_at = records.first().and_then(|r| iso(r));
-    conversation.updated_at = records.last().and_then(|r| iso(r));
-    if conversation.created_at.is_none() {
-        warnings.note_for(WarningCode::MissingTimestamps, Severity::Lossy, id);
+    // The earliest and latest times that are actually there, rather than the
+    // first and last records: a row with no `time` sorts to the front, and
+    // reading the bounds off position would blank the start of a conversation
+    // that is perfectly well timestamped.
+    let mut times: Vec<String> = records.iter().filter_map(|r| iso(r)).collect();
+    times.sort();
+    conversation.created_at = times.first().cloned();
+    conversation.updated_at = times.last().cloned();
+    if times.is_empty() {
+        // Nothing was lost: an activity row with no `time` never had one. Info,
+        // as the same condition is reported for every other vendor here — and
+        // only when no row in the conversation carries a time, or one untimed
+        // row would report a timestamped conversation as having none.
+        warnings.note_for(WarningCode::MissingTimestamps, Severity::Info, id);
     }
     // Google titles nothing. Synthesizing one from the first prompt is the
     // obvious thing to do and is forbidden for good reason: a title the user

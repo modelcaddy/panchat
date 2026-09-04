@@ -141,8 +141,11 @@ export can close them:
 
 1. Whether `title` truncates a long prompt. No source documents a cap from Google's side.
 2. Whether `subtitles[].value` and `safeHtmlItem` ever appear on the same record.
-3. Whether `time` is unique in general. One measured export of 1,452 records had no duplicates, and
-   this adapter's ids depend on it; a collision would fold two records together.
+3. Whether `time` is unique in general. One measured export of 1,452 records had no duplicates.
+   This adapter's derived ids are built from `time` and `title`, so a collision — or a record with
+   no `time` at all, which hashes on its title alone — produces a suffixed id and a
+   `synthesized_id` warning at `lossy`, because a suffixed id is exactly the one that will not line
+   up with the next export of the same account.
 4. The structure of `attachedFiles` and `imageFile` beyond a name, and whether the attached bytes
    are anywhere in the Takeout download.
 5. Which locales exist beyond the four whose prefixes are handled.
