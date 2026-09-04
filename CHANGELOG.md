@@ -48,6 +48,10 @@ cost us, is recorded per source:
   read as a handful of unopenable files and got the same wrong answer a zip of zips used to get.
   The gate is the one the archive reader uses a level down: only when nothing in the folder yielded
   a JSON array is the payload assumed to be inside the archives.
+- **Takeout exported as HTML is named rather than called unrecognisable.** Takeout asks for a
+  format before it builds the download and defaults to HTML, which cannot be read here — and
+  finding that out means requesting the whole export again and waiting on Google. The error now
+  says which mistake was made and where to go and fix it.
 - **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
   and in what order now has an answer in the repository rather than in the maintainer's head.
 - **[TRADEMARK.md](TRADEMARK.md)** — what the license does not cover, which is the names. Forking is

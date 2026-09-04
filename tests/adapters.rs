@@ -907,3 +907,21 @@ fn gemini_populates_an_active_path_it_does_not_need() {
         assert!(c.off_path_messages().is_empty());
     }
 }
+
+#[test]
+fn takeout_exported_as_html_says_which_mistake_was_made() {
+    // The format is chosen before Takeout builds the download, HTML is the
+    // default, and finding out it is unreadable means asking Google again and
+    // waiting. "Unrecognised export" is a cruel way to deliver that.
+    let html = files(&[(
+        "Takeout/My Activity/Gemini Apps/MyActivity.html",
+        "<html><body>an activity rendering</body></html>",
+    )]);
+    let err = panchat::normalize(&html).unwrap_err();
+    let message = err.to_string();
+
+    assert!(
+        message.contains("JSON") && message.contains("takeout.google.com"),
+        "the error has to say what to do instead: {message}"
+    );
+}

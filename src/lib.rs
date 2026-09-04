@@ -105,6 +105,17 @@ fn unrecognized(files: &[ExportFile]) -> Error {
             zip.path
         ));
     }
+    // Takeout asks for a format before it builds the download, and the choice
+    // is not obviously load-bearing at the time it is made. HTML is unreadable
+    // here and the user cannot tell that from "unrecognised export" — they have
+    // to request the whole thing again to find out, and Google takes its time.
+    if let Some(html) = files.iter().find(|f| is_activity_html(&f.path)) {
+        return Error::NotRecognized(format!(
+            "{} is Google Takeout's HTML rendering of your activity, which cannot be read. \
+             Request the export again from takeout.google.com with the format set to JSON",
+            html.path
+        ));
+    }
     if files.iter().all(|f| !f.loaded) {
         return Error::NotRecognized(format!(
             "{} file(s), none of them readable as an export",
@@ -120,6 +131,19 @@ fn unrecognized(files: &[ExportFile]) -> Error {
             .collect::<Vec<_>>()
             .join(", ")
     ))
+}
+
+/// A Takeout activity file exported as HTML rather than JSON.
+///
+/// Matched on the directory rather than the filename, because the filename is
+/// localized and the directory is too — but a download that has an activity
+/// directory at all and offers only HTML inside it is the one mistake worth
+/// naming.
+fn is_activity_html(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    (lower.ends_with(".html") || lower.ends_with(".htm"))
+        && lower.contains("activity")
+        && lower.contains('/')
 }
 
 /// Local file header, or the end-of-central-directory record of an empty

@@ -27,8 +27,15 @@ that records a search performed or a video watched — filtered to one product. 
 an object in this format. It is a pattern across rows, and Google does not always record enough to
 reconstruct it.
 
-**Where it comes from.** Takeout → My Activity → Gemini Apps, format JSON. The top-level "Gemini"
-product in Takeout is something else: it exports Gems configuration, not conversations.
+**Where it comes from.** Takeout → My Activity → Gemini Apps, **format JSON**. Two things go wrong
+here before any parsing does:
+
+- The top-level "Gemini" product in Takeout is something else. It exports Gems configuration, not
+  conversations. The chats are under *My Activity*.
+- **Takeout's default format is HTML**, and the choice is made before the download is built. An
+  HTML export cannot be read here, and finding that out means requesting the whole thing again and
+  waiting. So an export containing only an HTML activity file is now named as exactly that rather
+  than reported as unrecognisable.
 
 **Layout**
 
