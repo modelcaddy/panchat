@@ -28,6 +28,13 @@ cost us, is recorded per source:
   that this layout has been reported rather than observed here.
 - **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
   and in what order now has an answer in the repository rather than in the maintainer's head.
+- **[TRADEMARK.md](TRADEMARK.md)** — what the license does not cover, which is the names. Forking is
+  encouraged and saying truthfully what you built on needs no permission; distributing a modified
+  version under this name is the only thing asked against. It deliberately is **not** a `NOTICE`
+  file: Apache-2.0 section 6 makes reproducing `NOTICE` content an express exception to the
+  trademark non-grant, so a name protected there would be a name licensed away, and section 4(d)
+  would propagate it into every derivative work forever. Section 4(c), which retains trademark
+  notices found in the source form, is the mechanism that actually fits.
 
 ### Changed
 

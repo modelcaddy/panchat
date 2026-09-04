@@ -152,4 +152,9 @@ it contains every word you have ever typed into that product, and the issue temp
 
 ## License
 
-Apache-2.0.
+Apache-2.0 — use it, change it, sell it, ship it inside something closed.
+
+The names are the exception, and only because a name is the one thing that cannot be shared without
+making the open half untrustworthy. If you fork and distribute, give it your own name; everything
+else, including saying truthfully what you built on, needs no permission.
+[TRADEMARK.md](TRADEMARK.md) is the whole of it.

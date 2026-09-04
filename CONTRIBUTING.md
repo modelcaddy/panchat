@@ -145,3 +145,6 @@ statement about anyone's patch.
 Apache-2.0. Contributions are accepted under the same license. There is no CLA: Apache-2.0 already
 grants what this project needs, including from contributors, so nobody has to sign anything to
 send a patch.
+
+[TRADEMARK.md](TRADEMARK.md) covers the one thing the license does not, which is the names. It does
+not restrict contributing, using, or forking — only shipping a modified version under this name.
