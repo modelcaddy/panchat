@@ -168,7 +168,66 @@ pub fn read_path(path: impl AsRef<Path>) -> Result<Vec<ExportFile>, Error> {
 
     let mut out = Vec::new();
     collect_dir(path, path, &mut out)?;
+    #[cfg(feature = "zip")]
+    let out = expand_directory_archives(path, out)?;
     Ok(out)
+}
+
+/// A folder whose export is still inside the archives sitting in it.
+///
+/// Google Takeout splits a large account across numbered downloads, and what
+/// somebody does with those is put them in one folder. Every archive is a blob
+/// as far as the walk above is concerned — a `.zip` is not a structured file —
+/// so without this the folder reads as several unopenable files and the user is
+/// told their download is unrecognisable, which is the same wrong answer a zip
+/// of zips used to get.
+///
+/// The rule is the one the archive reader already uses one level down: only
+/// when nothing in the folder yielded a JSON array is the payload assumed to be
+/// inside the archives. A folder holding an unpacked export *and* a zip is left
+/// exactly as it was.
+#[cfg(feature = "zip")]
+fn expand_directory_archives(
+    root: &Path,
+    files: Vec<ExportFile>,
+) -> Result<Vec<ExportFile>, Error> {
+    if archive::holds_a_json_array(&files) {
+        return Ok(files);
+    }
+    // One budget for the folder: several downloads of one account are one
+    // export, and the budget is a claim about memory rather than about files.
+    let mut budget = archive::LOAD_BUDGET;
+    let mut out = Vec::with_capacity(files.len());
+    for f in files {
+        let full = root.join(&f.path);
+        if !f.loaded && starts_with_zip_magic(&full) {
+            out.extend(
+                archive::read_zip_with(&full, &mut budget).map_err(|e| match e {
+                    Error::Malformed(detail) => {
+                        Error::Malformed(format!("{} is a zip archive: {detail}", f.path))
+                    }
+                    other => other,
+                })?,
+            );
+        } else {
+            out.push(f);
+        }
+    }
+    Ok(out)
+}
+
+/// Whether the file on disk is an archive, without reading it.
+#[cfg(feature = "zip")]
+fn starts_with_zip_magic(path: &Path) -> bool {
+    use std::io::Read;
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut head = [0u8; 4];
+    match file.read_exact(&mut head) {
+        Ok(()) => is_zip(&head),
+        Err(_) => false,
+    }
 }
 
 /// Extensions worth reading. Every vendor export we know states its structure

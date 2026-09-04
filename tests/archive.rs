@@ -318,3 +318,104 @@ fn a_part_archive_that_cannot_be_opened_names_itself() {
     );
     assert!(matches!(err, panchat::Error::Malformed(_)), "{err:?}");
 }
+
+// ---------------------------------------------------------------------------
+// A folder of archives.
+//
+// Google Takeout splits a large account across numbered downloads, and what
+// people do with several downloads is put them in one folder. Every archive in
+// it is a blob as far as the directory walk is concerned, so without help the
+// folder reads as a handful of unopenable files.
+// ---------------------------------------------------------------------------
+
+const GEMINI: &str = include_str!("fixtures/gemini_myactivity.json");
+const SEARCH: &str = include_str!("fixtures/takeout_search_myactivity.json");
+
+/// A directory under the system temp dir, removed when the guard drops.
+struct TempDir(std::path::PathBuf);
+
+impl TempDir {
+    fn new(tag: &str) -> Self {
+        let path = std::env::temp_dir().join(format!("panchat-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+
+    fn write(&self, name: &str, bytes: &[u8]) {
+        std::fs::write(self.0.join(name), bytes).unwrap();
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn a_folder_of_takeout_archives_reads_as_one_export() {
+    let dir = TempDir::new("takeout-split");
+    // Takeout wraps everything in one folder and numbers the downloads.
+    dir.write(
+        "takeout-20260904T090000Z-001.zip",
+        &zip_of(&[(
+            "Takeout/My Activity/Search/MyActivity.json",
+            SEARCH.as_bytes(),
+        )]),
+    );
+    dir.write(
+        "takeout-20260904T090000Z-002.zip",
+        &zip_of(&[(
+            "Takeout/My Activity/Gemini Apps/MyActivity.json",
+            GEMINI.as_bytes(),
+        )]),
+    );
+
+    let files = panchat::read_path(&dir.0).unwrap();
+    let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+    assert!(
+        paths
+            .iter()
+            .any(|p| p.contains("Gemini Apps/MyActivity.json")),
+        "the export is inside the downloads, not beside them: {paths:?}"
+    );
+
+    let doc = panchat::normalize(&files).unwrap();
+    assert_eq!(
+        doc.source.platform, "gemini",
+        "and the half of the account that is conversations is still found in \
+         a download that also holds three other products"
+    );
+    assert!(!doc.conversations.is_empty());
+}
+
+#[test]
+fn a_folder_holding_an_unpacked_export_ignores_an_archive_beside_it() {
+    // The same protection the nested case has: an export that already yielded
+    // its payload needs nothing opened, and the zip in the folder is the user's
+    // own file.
+    let dir = TempDir::new("takeout-mixed");
+    dir.write("conversations.json", CHATGPT.as_bytes());
+    dir.write(
+        "my-backup.zip",
+        &zip_of(&[(
+            "conversations.json",
+            b"[{\"mapping\":{},\"title\":\"theirs\"}]",
+        )]),
+    );
+
+    let files = panchat::read_path(&dir.0).unwrap();
+    let backup = files.iter().find(|f| f.path == "my-backup.zip").unwrap();
+    assert!(
+        !backup.loaded,
+        "the archive beside an export stays closed: {backup:?}"
+    );
+    assert_eq!(
+        files
+            .iter()
+            .filter(|f| f.path == "conversations.json")
+            .count(),
+        1
+    );
+}

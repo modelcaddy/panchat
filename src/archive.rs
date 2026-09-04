@@ -43,7 +43,7 @@ use std::path::Path;
 /// An archive is the one input that can lie about its size: a few hundred
 /// kilobytes of zip can claim to be terabytes of JSON. Referenced entries cost
 /// nothing regardless, so this bounds only what is actually loaded.
-const LOAD_BUDGET: u64 = 2 * 1024 * 1024 * 1024;
+pub(crate) const LOAD_BUDGET: u64 = 2 * 1024 * 1024 * 1024;
 
 /// How many levels of nested archive are followed. See the module docs: one,
 /// and no further.
@@ -52,9 +52,15 @@ const MAX_DEPTH: u32 = 1;
 /// Read a zip archive from disk into the same shape [`crate::read_path`]
 /// produces for a directory.
 pub fn read_zip(path: &Path) -> Result<Vec<ExportFile>, Error> {
-    let file = std::fs::File::open(path)?;
     let mut budget = LOAD_BUDGET;
-    read_archive(file, 0, &mut budget)
+    read_zip_with(path, &mut budget)
+}
+
+/// Read an archive against a budget somebody else is keeping, for a caller
+/// opening several archives that are one export between them.
+pub(crate) fn read_zip_with(path: &Path, budget: &mut u64) -> Result<Vec<ExportFile>, Error> {
+    let file = std::fs::File::open(path)?;
+    read_archive(file, 0, budget)
 }
 
 /// Read a zip archive already held in memory.
@@ -173,7 +179,7 @@ fn read_archive<R: Read + Seek>(
 ///
 /// Being wrong in the safe direction costs a user nothing: a false "yes" leaves
 /// today's behaviour exactly as it was.
-fn holds_a_json_array(files: &[ExportFile]) -> bool {
+pub(crate) fn holds_a_json_array(files: &[ExportFile]) -> bool {
     files.iter().any(|f| {
         f.loaded
             && f.path.to_ascii_lowercase().ends_with(".json")

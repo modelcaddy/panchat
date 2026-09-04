@@ -43,6 +43,12 @@ filename identifies nothing**, which is why detection here tests the records ins
 activity rows, at least one of which names Gemini or Bard in `header`, `products`, or `titleUrl`.
 Claiming another product's file would turn somebody's search history into a chat transcript.
 
+**A large account is split across several downloads.** Takeout numbers them —
+`takeout-<timestamp>-001.zip`, `-002.zip` — and what people do with several downloads is put them
+in one folder. A folder of archives is read as one export, on the same rule the archive reader uses
+one level down: only when nothing in the folder yielded a JSON array is the payload assumed to be
+inside the archives. A folder holding an unpacked export and a zip is left alone.
+
 **A record**
 
 | Key | What it holds | Handling |

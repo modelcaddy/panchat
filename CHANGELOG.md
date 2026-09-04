@@ -42,6 +42,12 @@ cost us, is recorded per source:
 - **[WHY.md](WHY.md)** — why the parsing layer is open while the product on top of it is not, who
   pays for this, and what actually helps. Written to be read by someone who has never seen the code,
   and to be the source of a landing page.
+- **A folder of archives is read as one export.** Google Takeout splits a large account across
+  numbered downloads, and what somebody does with several downloads is put them in one folder.
+  Every archive in it is a blob as far as the directory walk is concerned, so until now that folder
+  read as a handful of unopenable files and got the same wrong answer a zip of zips used to get.
+  The gate is the one the archive reader uses a level down: only when nothing in the folder yielded
+  a JSON array is the payload assumed to be inside the archives.
 - **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
   and in what order now has an answer in the repository rather than in the maintainer's head.
 - **[TRADEMARK.md](TRADEMARK.md)** — what the license does not cover, which is the names. Forking is
