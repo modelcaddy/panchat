@@ -7,7 +7,7 @@ pub mod export;
 pub mod ir;
 pub mod warning;
 
-pub use adapters::{Adapter, Detection, ExportFile};
+pub use adapters::{Adapter, Detection, ExportFile, Registry};
 pub use ir::{
     Artifact, ContentPart, Conversation, Document, Message, Method, ProjectRef, Role, Source,
     FORMAT_VERSION, SCHEMA_URL,
@@ -48,6 +48,12 @@ pub enum Error {
 /// # }
 /// ```
 pub fn normalize(files: &[ExportFile]) -> Result<Document, Error> {
+    normalize_with(&Registry::builtin(), files)
+}
+
+/// [`normalize`], choosing among a caller's adapters rather than the built-in
+/// ones. [`Registry::normalize`] is the same thing reached from the other end.
+pub fn normalize_with(registry: &Registry, files: &[ExportFile]) -> Result<Document, Error> {
     // An archive handed in whole is expanded here rather than at the filesystem
     // boundary, so a caller that loaded the bytes itself — over HTTP, out of a
     // database, from a browser upload — gets the same behaviour as one that
@@ -63,7 +69,7 @@ pub fn normalize(files: &[ExportFile]) -> Result<Document, Error> {
     #[cfg(feature = "zip")]
     let files: &[ExportFile] = expanded.as_deref().unwrap_or(files);
 
-    let (adapter, detection) = adapters::detect(files).ok_or_else(|| {
+    let (adapter, detection) = registry.detect(files).ok_or_else(|| {
         let err = unrecognized(files);
         // The user passed an archive, so the error has to name the archive.
         // After expansion the failing files are entries inside it, and an error
@@ -167,7 +173,7 @@ pub(crate) fn is_zip(bytes: &[u8]) -> bool {
 
 /// Which adapter would handle these files, without parsing them.
 pub fn detect(files: &[ExportFile]) -> Option<Detection> {
-    adapters::detect(files).map(|(_, d)| d)
+    Registry::builtin().detect(files).map(|(_, d)| d)
 }
 
 /// Read a file or a directory of files into memory.

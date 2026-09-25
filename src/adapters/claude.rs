@@ -151,8 +151,8 @@ impl Adapter for Claude {
         }
         let (variant, variant_version) = layout(files);
         Some(Detection {
-            platform: PLATFORM,
-            variant,
+            platform: PLATFORM.into(),
+            variant: variant.into(),
             variant_version,
             confidence: 0.97,
             notes,

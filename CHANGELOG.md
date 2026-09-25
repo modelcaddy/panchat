@@ -15,6 +15,11 @@ cost us, is recorded per source:
 
 ### Added
 
+- **`Registry` — an adapter maintained outside this crate is now selected.** `Adapter` was public
+  and `adapters::all()` was a hardcoded list, so an out-of-tree adapter compiled cleanly and was
+  never asked. `Registry::builtin().with(adapter)` puts one into the same detection as the built-in
+  adapters; `Registry::empty()` starts from nothing; `normalize_with` is the free-function form.
+  `normalize` is unchanged and means the built-in registry. Closes #8.
 - **An archive of archives is read as the export inside it.** A large enough account does not
   receive one zip; it receives a zip of part archives, and read flat that is a download containing
   no export at all. One level of nesting is now followed, and exactly one, with the parts merged as
@@ -97,6 +102,11 @@ cost us, is recorded per source:
 
 ### Changed
 
+- **Breaking: `Detection.platform` and `Detection.variant` are `Cow<'static, str>`**, and
+  `Adapter::platform` / `Adapter::variant` return `&str` rather than `&'static str`. An external
+  adapter with a configured platform name could not otherwise produce one without leaking it. Code
+  comparing `d.platform == "chatgpt"` is unaffected; code passing `d.platform` where a `&str` is
+  expected needs `&d.platform`. Cheap now, expensive after 1.0.
 - **The decompression budget is shared across a whole read** rather than granted afresh to each
   archive, since several archives handed over together are one export and the budget is a statement
   about memory. An entry that would take a read past it now names itself in the error, because with
