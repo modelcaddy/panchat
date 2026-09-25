@@ -15,6 +15,12 @@ cost us, is recorded per source:
 
 ### Added
 
+- **`capture::Capture` — a capture document that cannot be finished without saying what it could not
+  see.** SPEC.md requires a capture producer to warn `branches_unavailable`, since a branch-free
+  conversation means "never regenerated" under an export and "could not see" under a capture.
+  Nothing in the crate produced a capture, so nothing exercised the rule. `Capture` sets
+  `method: capture`, links rendering order into parent pointers (leaving a client's own graph
+  alone), fills the active path, and adds the warning in `finish()`. Refs #10.
 - **`Registry` — an adapter maintained outside this crate is now selected.** `Adapter` was public
   and `adapters::all()` was a hardcoded list, so an out-of-tree adapter compiled cleanly and was
   never asked. `Registry::builtin().with(adapter)` puts one into the same detection as the built-in
@@ -73,6 +79,10 @@ cost us, is recorded per source:
 
 ### Fixed
 
+- **The JSON Schema had lost `source.method` and the `branches_unavailable` code**, both defined in
+  SPEC.md. That is what an unexercised rule does, and it is the schema third parties generate types
+  from. Both are back, and a test now fails if `WarningCode` gains a variant the schema does not
+  list — at compile time until the test lists it, at run time until the schema does.
 - **An attachment that is itself a zip is no longer opened and thrown away.** Nesting was followed
   on zip magic alone, and half of what people attach to a chatbot is a zip container — every
   `.docx`, `.xlsx`, `.pptx`, `.odt`, `.epub` and `.jar` — shipped by a 2026 ChatGPT export under an

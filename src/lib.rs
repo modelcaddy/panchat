@@ -3,6 +3,7 @@
 pub mod adapters;
 #[cfg(feature = "zip")]
 pub mod archive;
+pub mod capture;
 pub mod export;
 pub mod ir;
 pub mod warning;

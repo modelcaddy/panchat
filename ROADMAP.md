@@ -59,9 +59,9 @@ The release after, where the library becomes usable by people who do not write R
    `Registry::builtin().with(adapter)`, with the `Detection` field change made while it is cheap.
 6. [#9](https://github.com/modelcaddy/panchat/issues/9) — Stream large exports. Memory bounded by
    the largest conversation, not the file.
-7. [#10](https://github.com/modelcaddy/panchat/issues/10) — A capture producer. The specification
-   defines `method: capture` and requires `branches_unavailable` from it, and nothing in the tree
-   emits either. Prove the rule here before a third party gets it wrong alone.
+7. [#10](https://github.com/modelcaddy/panchat/issues/10) — A capture producer. **Half done:**
+   `capture::Capture` makes the rule hold by construction, and proving it found the schema had
+   already lost both `method` and the warning code. Still open: the first real producer in-tree.
 
 ## Later
 
