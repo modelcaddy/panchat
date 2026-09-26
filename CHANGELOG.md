@@ -15,6 +15,15 @@ cost us, is recorded per source:
 
 ### Added
 
+- **Claude Code's local session history** (`~/.claude/projects/`), the first source read as a
+  *capture* — a client's own record rather than a vendor's export — and the first built from
+  observed structure rather than reconstructed: 171 real sessions and 139 subagent transcripts,
+  surveyed as key names and counts. It is also the richest source here: a real branch graph (every
+  rewind is a sibling) and a model on every assistant message. Nodes that are not turns
+  (attachments, system events) stay in the chain as hidden messages so no parent dangles;
+  compaction's `logicalParentUuid` is followed, which gives every observed session one root; a node
+  rewritten on resume appears once, last write winning; the active path walks up from the
+  recorded `leafUuid`. See [docs/formats/claude-code.md](docs/formats/claude-code.md). Refs #10.
 - **`capture::Capture` — a capture document that cannot be finished without saying what it could not
   see.** SPEC.md requires a capture producer to warn `branches_unavailable`, since a branch-free
   conversation means "never regenerated" under an export and "could not see" under a capture.
@@ -112,6 +121,10 @@ cost us, is recorded per source:
 
 ### Changed
 
+- **SPEC: a capture that records its own branch graph must not warn `branches_unavailable`.** As
+  first written, the rule required the warning from every capture. A client's local history can
+  see every alternative — Claude Code's does — and a producer claiming it could not would teach
+  consumers to ignore the warning where it is true. The test is now the source, not the method.
 - **Breaking: `Detection.platform` and `Detection.variant` are `Cow<'static, str>`**, and
   `Adapter::platform` / `Adapter::variant` return `&str` rather than `&'static str`. An external
   adapter with a configured platform name could not otherwise produce one without leaking it. Code

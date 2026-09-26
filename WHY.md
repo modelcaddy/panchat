@@ -9,8 +9,9 @@
 Millions of people have years of their thinking inside four or five chat products. Every one of
 those products offers an export. Not one of them tells you what the export leaves out.
 
-**panchat reads those exports into one shape, and says out loud what each one threw away.** Three
-platforms today — ChatGPT, Claude, Gemini — and the list is short for a reason covered below.
+**panchat reads those exports into one shape, and says out loud what each one threw away.** Four
+sources today — ChatGPT, Claude, Gemini, and Claude Code's own session history — and the list
+is short for a reason covered below.
 It is Apache-2.0, it is free, and it always will be.
 
 ---
@@ -74,7 +75,7 @@ on faith from a compiled artefact. Here, the whole read path is on the screen, a
 
 **Because nobody can write these parsers alone.** Nobody has an account on every platform, a copy
 of every export generation, or a Japanese Takeout download. There are maybe a dozen products worth
-reading and each one changes on its own schedule. Three vendors is a tool. Enough vendors is
+reading and each one changes on its own schedule. Four sources is a tool. Enough vendors is
 infrastructure, and infrastructure only ever gets built by more than one person.
 
 The Gemini support here was written without anyone ever holding a Gemini export — reconstructed
@@ -142,7 +143,7 @@ file listing for exactly this reason.
 
 ### 2. Tell us what your export looks like
 
-We support three platforms. There are at least a dozen worth reading: Copilot, Grok, DeepSeek,
+We read four sources. There are at least a dozen worth reading: Copilot, Grok, DeepSeek,
 Perplexity, and the local tools — Open WebUI, LM Studio, Jan, SillyTavern — where the history is a
 database or a directory rather than an export.
 

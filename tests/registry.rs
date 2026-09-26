@@ -127,6 +127,12 @@ fn a_registry_lists_what_it_can_read() {
     let registry = Registry::builtin().with(HouseLog::new("acme-internal"));
     assert_eq!(
         registry.platforms(),
-        vec!["chatgpt", "claude", "gemini", "acme-internal"]
+        vec![
+            "chatgpt",
+            "claude",
+            "claude-code",
+            "gemini",
+            "acme-internal"
+        ]
     );
 }

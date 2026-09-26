@@ -61,7 +61,9 @@ The release after, where the library becomes usable by people who do not write R
    the largest conversation, not the file.
 7. [#10](https://github.com/modelcaddy/panchat/issues/10) — A capture producer. **Half done:**
    `capture::Capture` makes the rule hold by construction, and proving it found the schema had
-   already lost both `method` and the warning code. Still open: the first real producer in-tree.
+   already lost both `method` and the warning code. The first real producer is Claude Code's
+   session history — which turned out to record its own branch graph, and so forced SPEC to say
+   when a capture must *not* claim blindness.
 
 ## Later
 

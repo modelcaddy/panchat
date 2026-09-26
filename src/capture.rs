@@ -7,6 +7,11 @@
 //! tell "the user never regenerated" from "nobody could see", which is why a
 //! capture producer MUST say so with `branches_unavailable`.
 //!
+//! This builder is for a source that shows one thread — a rendered page. A
+//! client's local history that stores its own branch graph is a capture too,
+//! but it could see the alternatives and must not claim otherwise; the Claude
+//! Code adapter builds its document directly for that reason.
+//!
 //! A rule that depends on every producer remembering it is the first rule to
 //! rot, and this one had no producer in this crate to exercise it. So it is
 //! built in here instead: a [`Capture`] is the only way to start a capture

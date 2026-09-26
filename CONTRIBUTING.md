@@ -1,6 +1,6 @@
 # Contributing
 
-The useful thing you can do here is **teach it to read one more export**. Three vendors is a tool;
+The useful thing you can do here is **teach it to read one more export**. Four sources is a tool;
 enough vendors is infrastructure, and no one person has an account on every platform or a copy of
 every export shape. That is the part of this project that only contributors can supply.
 

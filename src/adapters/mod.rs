@@ -13,6 +13,7 @@ use std::borrow::Cow;
 
 pub mod chatgpt;
 pub mod claude;
+pub mod claude_code;
 pub mod gemini;
 
 /// One file from an export. A bare `conversations.json` is a single-element
@@ -104,6 +105,7 @@ pub fn all() -> Vec<Box<dyn Adapter>> {
     vec![
         Box::new(chatgpt::ChatGpt),
         Box::new(claude::Claude),
+        Box::new(claude_code::ClaudeCode),
         Box::new(gemini::Gemini),
     ]
 }
