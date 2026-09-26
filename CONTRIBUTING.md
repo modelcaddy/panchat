@@ -1,6 +1,6 @@
 # Contributing
 
-The useful thing you can do here is **teach it to read one more export**. Three vendors is a tool;
+The useful thing you can do here is **teach it to read one more export**. Four sources is a tool;
 enough vendors is infrastructure, and no one person has an account on every platform or a copy of
 every export shape. That is the part of this project that only contributors can supply.
 
@@ -26,8 +26,8 @@ An adapter is one file in `src/adapters/`, one line in the registry, fixtures, a
 
 ```rust
 pub trait Adapter: Send + Sync {
-    fn platform(&self) -> &'static str;
-    fn variant(&self) -> &'static str;
+    fn platform(&self) -> &str;
+    fn variant(&self) -> &str;
     fn detect(&self, files: &[ExportFile]) -> Option<Detection>;
     fn parse(&self, files: &[ExportFile], warnings: &mut Warnings) -> Result<Document, Error>;
 }
@@ -111,10 +111,11 @@ Being honest about the state of things is cheaper than being embarrassed later:
 
 - **It is 0.x, and the interchange format is 0.1.** Both the Rust API and the emitted JSON can break
   in a minor release. If you build on it, pin the version and read `format_version` at runtime.
-- **The adapter registry is closed.** `Adapter` is public, but `adapters::all()` is a hardcoded
-  list, so an adapter maintained outside this repository will compile and never be selected by
-  `normalize`. For now, adapters live in-tree and arrive as pull requests. If you want to maintain
-  one out-of-tree, open an issue — that is a design change worth making, not a workaround.
+- **An adapter can live outside this repository.** `Registry::builtin().with(YourAdapter)` and
+  then `registry.normalize(files)`: detection chooses among yours and the built-in ones the same
+  way. The review rules above still decide whether an adapter is worth trusting; they just are not
+  enforced on one you keep yourself. An adapter in-tree gets fixture tests on every commit, which is
+  the better deal for anything other people depend on.
 - **Writing a vendor's own export format back out is not supported and will not be.** No vendor
   imports its own export, so a writer would be a format nobody reads.
 - **Nothing streams yet.** A very large `conversations.json` is held in memory whole.

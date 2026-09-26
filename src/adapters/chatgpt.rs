@@ -269,8 +269,8 @@ impl Adapter for ChatGpt {
             notes.push(format!("{} conversation(s)", array.len()));
         }
         Some(Detection {
-            platform: PLATFORM,
-            variant,
+            platform: PLATFORM.into(),
+            variant: variant.into(),
             variant_version,
             confidence,
             notes,

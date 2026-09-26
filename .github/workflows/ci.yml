@@ -38,3 +38,37 @@ jobs:
 
       - name: CLI smoke
         run: cargo run --features cli --bin panchat -- tests/fixtures/chatgpt_branched.json --inspect
+
+  python:
+    # The binding is tested on every commit, not only when a wheel is built:
+    # a change to the crate's public API breaks it, and CI is where that should
+    # be found rather than on release day.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bindings/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bindings/python
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Build and test
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install maturin pytest
+          maturin develop
+          pytest -q tests

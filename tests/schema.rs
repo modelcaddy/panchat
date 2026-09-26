@@ -160,3 +160,59 @@ fn no_producer_emits_a_dangling_parent() {
         }
     }
 }
+
+/// Every warning code the crate can emit is one the published schema knows
+/// about. A code added to `WarningCode` and not to the schema is exactly how
+/// `branches_unavailable` went missing: defined in SPEC, emitted by nothing,
+/// and absent from the schema a third party generates types from.
+#[test]
+fn the_schema_knows_every_warning_code() {
+    use panchat::WarningCode::*;
+    let s = schema();
+    let known: Vec<&str> = s["$defs"]["warning"]["properties"]["code"]["examples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    for code in [
+        MissingTimestamps,
+        SynthesizedId,
+        UnknownContentPart,
+        AttachmentNotIncluded,
+        BranchPointerBroken,
+        BranchCycle,
+        ItemSkipped,
+        UnhandledExportSection,
+        NoModelIdentity,
+        BranchesUnavailable,
+    ] {
+        // Exhaustive by construction: a new variant fails to compile here until
+        // it is listed, and fails the assertion until the schema lists it too.
+        match code {
+            MissingTimestamps
+            | SynthesizedId
+            | UnknownContentPart
+            | AttachmentNotIncluded
+            | BranchPointerBroken
+            | BranchCycle
+            | ItemSkipped
+            | UnhandledExportSection
+            | NoModelIdentity
+            | BranchesUnavailable => {}
+        }
+        let name = serde_json::to_value(code).unwrap();
+        let name = name.as_str().unwrap();
+        assert!(known.contains(&name), "schema does not know `{name}`");
+    }
+}
+
+/// SPEC.md defines `source.method`; the schema must describe it.
+#[test]
+fn the_schema_describes_the_acquisition_method() {
+    let s = schema();
+    assert!(
+        s["$defs"]["source"]["properties"]["method"].is_object(),
+        "source.method is in SPEC.md and must be in the schema"
+    );
+}

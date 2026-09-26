@@ -9,9 +9,11 @@
 use crate::ir::Document;
 use crate::warning::Warnings;
 use crate::Error;
+use std::borrow::Cow;
 
 pub mod chatgpt;
 pub mod claude;
+pub mod claude_code;
 pub mod gemini;
 
 /// One file from an export. A bare `conversations.json` is a single-element
@@ -69,8 +71,10 @@ impl ExportFile {
 /// An adapter's vote that it recognises an export.
 #[derive(Debug, Clone)]
 pub struct Detection {
-    pub platform: &'static str,
-    pub variant: &'static str,
+    /// Owned or borrowed, so an adapter written outside this crate can carry a
+    /// platform name it was configured with rather than one compiled in.
+    pub platform: Cow<'static, str>,
+    pub variant: Cow<'static, str>,
     /// Which generation of the vendor's export shape this is — see
     /// [`crate::ir::Source::variant_version`].
     pub variant_version: u32,
@@ -81,8 +85,8 @@ pub struct Detection {
 }
 
 pub trait Adapter: Send + Sync {
-    fn platform(&self) -> &'static str;
-    fn variant(&self) -> &'static str;
+    fn platform(&self) -> &str;
+    fn variant(&self) -> &str;
 
     /// Return a vote if these files look like this adapter's export shape.
     fn detect(&self, files: &[ExportFile]) -> Option<Detection>;
@@ -96,28 +100,97 @@ pub trait Adapter: Send + Sync {
     fn parse(&self, files: &[ExportFile], warnings: &mut Warnings) -> Result<Document, Error>;
 }
 
-/// Every registered adapter, in detection priority order.
+/// The adapters this crate ships, in detection priority order.
 pub fn all() -> Vec<Box<dyn Adapter>> {
     vec![
         Box::new(chatgpt::ChatGpt),
         Box::new(claude::Claude),
+        Box::new(claude_code::ClaudeCode),
         Box::new(gemini::Gemini),
     ]
 }
 
-/// Highest-confidence adapter for these files, if any recognises them.
-pub fn detect(files: &[ExportFile]) -> Option<(Box<dyn Adapter>, Detection)> {
-    let mut best: Option<(Box<dyn Adapter>, Detection)> = None;
-    for adapter in all() {
-        if let Some(d) = adapter.detect(files) {
-            let better = best
-                .as_ref()
-                .map(|(_, prev)| d.confidence > prev.confidence)
-                .unwrap_or(true);
-            if better {
-                best = Some((adapter, d));
-            }
+/// The set of adapters detection chooses from.
+///
+/// [`crate::normalize`] uses [`Registry::builtin`]. A registry exists so that an
+/// adapter maintained somewhere else — a company's internal chat tool, a
+/// research group's logging format, a product emitting this format for its own
+/// conversations — is selected by the same detection as the built-in ones,
+/// instead of compiling cleanly and never being asked.
+///
+/// ```no_run
+/// # use panchat::{Adapter, Detection, Document, Error, ExportFile, Registry, Warnings};
+/// # struct Mine;
+/// # impl Adapter for Mine {
+/// #     fn platform(&self) -> &str { "mine" }
+/// #     fn variant(&self) -> &str { "v1" }
+/// #     fn detect(&self, _: &[ExportFile]) -> Option<Detection> { None }
+/// #     fn parse(&self, _: &[ExportFile], _: &mut Warnings) -> Result<Document, Error> { unimplemented!() }
+/// # }
+/// # fn main() -> Result<(), Error> {
+/// let registry = Registry::builtin().with(Mine);
+/// let doc = registry.normalize(&panchat::read_path("export/")?)?;
+/// # Ok(())
+/// # }
+/// ```
+pub struct Registry {
+    adapters: Vec<Box<dyn Adapter>>,
+}
+
+impl Registry {
+    /// Every adapter this crate ships.
+    pub fn builtin() -> Self {
+        Self { adapters: all() }
+    }
+
+    /// No adapters at all, for a caller who wants to choose every one.
+    pub fn empty() -> Self {
+        Self {
+            adapters: Vec::new(),
         }
     }
-    best
+
+    /// Add an adapter after the ones already here.
+    ///
+    /// Detection picks the highest-confidence vote and breaks ties on order,
+    /// so an adapter added here wins a tie against nothing. To claim files a
+    /// built-in adapter also recognises, vote with a higher confidence — and
+    /// be sure, because `detect` must never claim another vendor's files.
+    pub fn with(mut self, adapter: impl Adapter + 'static) -> Self {
+        self.adapters.push(Box::new(adapter));
+        self
+    }
+
+    /// The platforms this registry can read, in priority order.
+    pub fn platforms(&self) -> Vec<&str> {
+        self.adapters.iter().map(|a| a.platform()).collect()
+    }
+
+    /// Highest-confidence adapter for these files, if any recognises them.
+    pub fn detect(&self, files: &[ExportFile]) -> Option<(&dyn Adapter, Detection)> {
+        let mut best: Option<(&dyn Adapter, Detection)> = None;
+        for adapter in &self.adapters {
+            if let Some(d) = adapter.detect(files) {
+                let better = best
+                    .as_ref()
+                    .map(|(_, prev)| d.confidence > prev.confidence)
+                    .unwrap_or(true);
+                if better {
+                    best = Some((adapter.as_ref(), d));
+                }
+            }
+        }
+        best
+    }
+
+    /// Parse an export against this registry. See [`crate::normalize`].
+    pub fn normalize(&self, files: &[ExportFile]) -> Result<Document, Error> {
+        crate::normalize_with(self, files)
+    }
+}
+
+impl Default for Registry {
+    fn default() -> Self {
+        Self::builtin()
+    }
 }

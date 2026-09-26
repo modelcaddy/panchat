@@ -15,6 +15,38 @@ cost us, is recorded per source:
 
 ### Added
 
+- **A Python binding, `pip install panchat`.** The people who hold chat dumps and want to do
+  something with them mostly work in Python, and a Rust crate is invisible to them. Documents come
+  back as plain dicts and lists shaped exactly as the JSON Schema describes — no wrapper classes,
+  because the schema is the API and a second type system would drift from it; a document read in
+  Python is byte for byte the one the CLI prints, `x-` keys and `raw` included. `load`,
+  `load_bytes` (an upload or a zip already in memory), `detect`, `render`, and the three helpers
+  every consumer ends up writing — `active_messages`, `off_path_messages`, `text`. Parsing releases
+  the GIL. Typed exceptions: `NotRecognized`, `MalformedExport`, both `PanchatError`. One abi3
+  wheel per platform covers Python 3.9 onward; CI builds and tests the binding on every commit, and
+  a version tag builds wheels for Linux, macOS and Windows and publishes through PyPI trusted
+  publishing. Lives in `bindings/python`, its own crate, so the library never gains a pyo3
+  dependency. Closes #7.
+- **Claude Code's local session history** (`~/.claude/projects/`), the first source read as a
+  *capture* — a client's own record rather than a vendor's export — and the first built from
+  observed structure rather than reconstructed: 171 real sessions and 139 subagent transcripts,
+  surveyed as key names and counts. It is also the richest source here: a real branch graph (every
+  rewind is a sibling) and a model on every assistant message. Nodes that are not turns
+  (attachments, system events) stay in the chain as hidden messages so no parent dangles;
+  compaction's `logicalParentUuid` is followed, which gives every observed session one root; a node
+  rewritten on resume appears once, last write winning; the active path walks up from the
+  recorded `leafUuid`. See [docs/formats/claude-code.md](docs/formats/claude-code.md). Refs #10.
+- **`capture::Capture` — a capture document that cannot be finished without saying what it could not
+  see.** SPEC.md requires a capture producer to warn `branches_unavailable`, since a branch-free
+  conversation means "never regenerated" under an export and "could not see" under a capture.
+  Nothing in the crate produced a capture, so nothing exercised the rule. `Capture` sets
+  `method: capture`, links rendering order into parent pointers (leaving a client's own graph
+  alone), fills the active path, and adds the warning in `finish()`. Refs #10.
+- **`Registry` — an adapter maintained outside this crate is now selected.** `Adapter` was public
+  and `adapters::all()` was a hardcoded list, so an out-of-tree adapter compiled cleanly and was
+  never asked. `Registry::builtin().with(adapter)` puts one into the same detection as the built-in
+  adapters; `Registry::empty()` starts from nothing; `normalize_with` is the free-function form.
+  `normalize` is unchanged and means the built-in registry. Closes #8.
 - **An archive of archives is read as the export inside it.** A large enough account does not
   receive one zip; it receives a zip of part archives, and read flat that is a download containing
   no export at all. One level of nesting is now followed, and exactly one, with the parts merged as
@@ -68,6 +100,10 @@ cost us, is recorded per source:
 
 ### Fixed
 
+- **The JSON Schema had lost `source.method` and the `branches_unavailable` code**, both defined in
+  SPEC.md. That is what an unexercised rule does, and it is the schema third parties generate types
+  from. Both are back, and a test now fails if `WarningCode` gains a variant the schema does not
+  list — at compile time until the test lists it, at run time until the schema does.
 - **An attachment that is itself a zip is no longer opened and thrown away.** Nesting was followed
   on zip magic alone, and half of what people attach to a chatbot is a zip container — every
   `.docx`, `.xlsx`, `.pptx`, `.odt`, `.epub` and `.jar` — shipped by a 2026 ChatGPT export under an
@@ -97,6 +133,15 @@ cost us, is recorded per source:
 
 ### Changed
 
+- **SPEC: a capture that records its own branch graph must not warn `branches_unavailable`.** As
+  first written, the rule required the warning from every capture. A client's local history can
+  see every alternative — Claude Code's does — and a producer claiming it could not would teach
+  consumers to ignore the warning where it is true. The test is now the source, not the method.
+- **Breaking: `Detection.platform` and `Detection.variant` are `Cow<'static, str>`**, and
+  `Adapter::platform` / `Adapter::variant` return `&str` rather than `&'static str`. An external
+  adapter with a configured platform name could not otherwise produce one without leaking it. Code
+  comparing `d.platform == "chatgpt"` is unaffected; code passing `d.platform` where a `&str` is
+  expected needs `&d.platform`. Cheap now, expensive after 1.0.
 - **The decompression budget is shared across a whole read** rather than granted afresh to each
   archive, since several archives handed over together are one export and the budget is a statement
   about memory. An entry that would take a read past it now names itself in the error, because with

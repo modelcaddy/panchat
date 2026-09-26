@@ -22,6 +22,17 @@ for w in &doc.warnings {
 # Ok::<(), panchat::Error>(())
 ```
 
+From Python — `pip install panchat`, plain dicts shaped as the schema describes
+([more](bindings/python/README.md)):
+
+```python
+import panchat
+doc = panchat.load("chatgpt-export.zip")
+for c in doc["conversations"]:
+    for m in panchat.active_messages(c):
+        print(m["role"], panchat.text(m))
+```
+
 Or without writing any code:
 
 ```text
@@ -48,6 +59,7 @@ panchat ~/Downloads/chatgpt-export --format json | jq '.conversations | length'
 |---|---|---|
 | ChatGPT | `conversations.json`, or sharded `conversations-000.json` … plus `export_manifest.json` | Conversations, branch graph, per-message model, voice transcripts, attachments (resolved to the bytes the export ships) |
 | Claude | `conversations.json` + `projects.json` / `projects/`, `memories.json`, `design_chats/` | Conversations, Claude Design chats, projects and their documents, memories, tool calls, attachments (referenced) |
+| Claude Code | `~/.claude/projects/` — the client's own session history, read as a capture | Sessions with the full branch graph and per-message model, subagent transcripts, compaction joined, memory files |
 | Gemini | Google Takeout, `My Activity/Gemini Apps/MyActivity.json` | Exchanges, attachments (referenced). An activity log rather than a chat export — see below |
 
 ## Input
@@ -88,7 +100,8 @@ document says which generation it came from —
 
 — and a consumer asks `variant_version >= 2` rather than matching strings. What each one looked like
 when it was read, and what that cost, is logged per source — [ChatGPT](docs/formats/chatgpt.md),
-[Claude](docs/formats/claude.md), [Gemini](docs/formats/gemini.md) — and every change to this crate
+[Claude](docs/formats/claude.md), [Claude Code](docs/formats/claude-code.md),
+[Gemini](docs/formats/gemini.md) — and every change to this crate
 is in [CHANGELOG.md](CHANGELOG.md).
 Both old and new layouts stay readable: a download that has been sitting in someone's Downloads
 folder for a year must not become unreadable because the vendor moved on.
@@ -150,7 +163,7 @@ more than the rest.
 
 ## Contributing
 
-Three vendors is a tool; enough vendors is infrastructure — and nobody has an account on every
+Four sources is a tool; enough vendors is infrastructure — and nobody has an account on every
 platform or a copy of every export shape. Adapters arrive as pull requests, and
 [CONTRIBUTING.md](CONTRIBUTING.md) walks through writing one: the trait is four methods, and the
 review bar is about honesty rather than polish — declare what you dropped, and never drop what you

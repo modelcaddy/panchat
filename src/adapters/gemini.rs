@@ -112,8 +112,8 @@ impl Adapter for Gemini {
             ));
         }
         Some(Detection {
-            platform: PLATFORM,
-            variant: VARIANT_V1,
+            platform: PLATFORM.into(),
+            variant: VARIANT_V1.into(),
             variant_version: 1,
             confidence,
             notes,
