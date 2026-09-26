@@ -21,6 +21,7 @@
       "required": ["platform"],
       "properties": {
         "platform": { "type": "string", "description": "Open string, not an enum — an adapter for an unknown vendor must still be expressible." },
+        "method": { "type": "string", "examples": ["export", "capture"], "description": "How the data was obtained. Open string; export and capture are defined, and they are lossy in opposite directions. Absent means unknown — read it as the weaker guarantee." },
         "variant": { "type": "string", "description": "Which vendor export shape was recognised, e.g. official_export_v2." },
         "variant_version": { "type": "integer", "minimum": 1, "description": "Generation of that shape, as the producer numbers it. Comparable: a consumer asks variant_version >= 2 rather than matching strings." },
         "exported_at": { "type": "string", "format": "date-time" }
@@ -144,7 +145,8 @@
             "branch_cycle",
             "item_skipped",
             "unhandled_export_section",
-            "no_model_identity"
+            "no_model_identity",
+            "branches_unavailable"
           ]
         },
         "severity": { "enum": ["info", "lossy", "dropped"] },

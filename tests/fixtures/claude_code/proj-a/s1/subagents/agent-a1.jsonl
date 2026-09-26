@@ -1,0 +1,2 @@
+{"type":"user","uuid":"a0","parentUuid":null,"sessionId":"s1","timestamp":"2026-09-01T10:00:03.500Z","isSidechain":true,"message":{"role":"user","content":"An invented subagent task."}}
+{"type":"assistant","uuid":"a1","parentUuid":"a0","sessionId":"s1","timestamp":"2026-09-01T10:00:03.600Z","isSidechain":true,"message":{"id":"msg_s","role":"assistant","model":"claude-invented-1","content":[{"type":"text","text":"An invented subagent answer."}]}}

@@ -11,6 +11,144 @@ cost us, is recorded per source:
 - [ChatGPT export log](docs/formats/chatgpt.md)
 - [Claude export log](docs/formats/claude.md)
 
+## Unreleased
+
+### Added
+
+- **A Python binding, `pip install panchat`.** The people who hold chat dumps and want to do
+  something with them mostly work in Python, and a Rust crate is invisible to them. Documents come
+  back as plain dicts and lists shaped exactly as the JSON Schema describes — no wrapper classes,
+  because the schema is the API and a second type system would drift from it; a document read in
+  Python is byte for byte the one the CLI prints, `x-` keys and `raw` included. `load`,
+  `load_bytes` (an upload or a zip already in memory), `detect`, `render`, and the three helpers
+  every consumer ends up writing — `active_messages`, `off_path_messages`, `text`. Parsing releases
+  the GIL. Typed exceptions: `NotRecognized`, `MalformedExport`, both `PanchatError`. One abi3
+  wheel per platform covers Python 3.9 onward; CI builds and tests the binding on every commit, and
+  a version tag builds wheels for Linux, macOS and Windows and publishes through PyPI trusted
+  publishing. Lives in `bindings/python`, its own crate, so the library never gains a pyo3
+  dependency. Closes #7.
+- **Claude Code's local session history** (`~/.claude/projects/`), the first source read as a
+  *capture* — a client's own record rather than a vendor's export — and the first built from
+  observed structure rather than reconstructed: 171 real sessions and 139 subagent transcripts,
+  surveyed as key names and counts. It is also the richest source here: a real branch graph (every
+  rewind is a sibling) and a model on every assistant message. Nodes that are not turns
+  (attachments, system events) stay in the chain as hidden messages so no parent dangles;
+  compaction's `logicalParentUuid` is followed, which gives every observed session one root; a node
+  rewritten on resume appears once, last write winning; the active path walks up from the
+  recorded `leafUuid`. See [docs/formats/claude-code.md](docs/formats/claude-code.md). Refs #10.
+- **`capture::Capture` — a capture document that cannot be finished without saying what it could not
+  see.** SPEC.md requires a capture producer to warn `branches_unavailable`, since a branch-free
+  conversation means "never regenerated" under an export and "could not see" under a capture.
+  Nothing in the crate produced a capture, so nothing exercised the rule. `Capture` sets
+  `method: capture`, links rendering order into parent pointers (leaving a client's own graph
+  alone), fills the active path, and adds the warning in `finish()`. Refs #10.
+- **`Registry` — an adapter maintained outside this crate is now selected.** `Adapter` was public
+  and `adapters::all()` was a hardcoded list, so an out-of-tree adapter compiled cleanly and was
+  never asked. `Registry::builtin().with(adapter)` puts one into the same detection as the built-in
+  adapters; `Registry::empty()` starts from nothing; `normalize_with` is the free-function form.
+  `normalize` is unchanged and means the built-in registry. Closes #8.
+- **An archive of archives is read as the export inside it.** A large enough account does not
+  receive one zip; it receives a zip of part archives, and read flat that is a download containing
+  no export at all. One level of nesting is now followed, and exactly one, with the parts merged as
+  though each had been unpacked into the same folder — so a split export and the folder it unpacks
+  to still produce the same document, which is the property the whole archive path exists for.
+  Whether to look inside is decided by shape rather than by a filename: an archive that already
+  yielded a JSON array holds its payload, and is left alone. That is what keeps a zip the *user*
+  uploaded — 2026 exports ship those bytes — from being opened and sprayed across their export.
+  The delivery changed, not the shape, so an export that arrives this way is still
+  `official_export_v2`. See [docs/formats/chatgpt.md](docs/formats/chatgpt.md), which also records
+  that this layout has been reported rather than observed here.
+- **Gemini, via Google Takeout.** The third platform, and the one that most tests what this
+  representation is for: Google does not export conversations, it exports *My Activity* — the same
+  log that records a search — filtered to one product. So there is no conversation object, no id,
+  no title, no model, and no thread. Every one of those absences is reported rather than papered
+  over, and the two temptations are refused: rows are **not** stitched into conversations on a time
+  gap, because that invents a conversation Google never recorded, and the answer's HTML is **not**
+  converted to Markdown, because a producer must not reformat what a vendor stored. Grouping uses
+  `titleUrl` where Google supplies one; ids are derived from the record's own content so a
+  re-export de-duplicates rather than doubling. Detection tests the records, never the filename:
+  every Google product writes its own `MyActivity.json` into the same download, and the path is
+  localized. See [docs/formats/gemini.md](docs/formats/gemini.md) — including the warning that this
+  shape was reconstructed from twenty other parsers rather than read from an export, and the list of
+  what is still unconfirmed.
+- **[WHY.md](WHY.md)** — why the parsing layer is open while the product on top of it is not, who
+  pays for this, and what actually helps. Written to be read by someone who has never seen the code,
+  and to be the source of a landing page.
+- **Gemini activity is read from every matching file, not the first one found.** Takeout splits a
+  large account across numbered downloads. This crate already carries the scar of an adapter that
+  read one file and reported the 100 conversations it found out of 1,285, with no error; the same
+  shape of mistake was available here.
+- **A folder of archives is read as one export.** Google Takeout splits a large account across
+  numbered downloads, and what somebody does with several downloads is put them in one folder.
+  Every archive in it is a blob as far as the directory walk is concerned, so until now that folder
+  read as a handful of unopenable files and got the same wrong answer a zip of zips used to get.
+  The gate is the one the archive reader uses a level down: only when nothing in the folder yielded
+  a JSON array is the payload assumed to be inside the archives.
+- **Takeout exported as HTML is named rather than called unrecognisable.** Takeout asks for a
+  format before it builds the download and defaults to HTML, which cannot be read here — and
+  finding that out means requesting the whole export again and waiting on Google. The error now
+  says which mistake was made and where to go and fix it.
+- **ROADMAP.md**, and the response-time note contributors were entitled to ask for. What is planned
+  and in what order now has an answer in the repository rather than in the maintainer's head.
+- **[TRADEMARK.md](TRADEMARK.md)** — what the license does not cover, which is the names. Forking is
+  encouraged and saying truthfully what you built on needs no permission; distributing a modified
+  version under this name is the only thing asked against. It deliberately is **not** a `NOTICE`
+  file: Apache-2.0 section 6 makes reproducing `NOTICE` content an express exception to the
+  trademark non-grant, so a name protected there would be a name licensed away, and section 4(d)
+  would propagate it into every derivative work forever. Section 4(c), which retains trademark
+  notices found in the source form, is the mechanism that actually fits.
+
+### Fixed
+
+- **The JSON Schema had lost `source.method` and the `branches_unavailable` code**, both defined in
+  SPEC.md. That is what an unexercised rule does, and it is the schema third parties generate types
+  from. Both are back, and a test now fails if `WarningCode` gains a variant the schema does not
+  list — at compile time until the test lists it, at run time until the schema does.
+- **An attachment that is itself a zip is no longer opened and thrown away.** Nesting was followed
+  on zip magic alone, and half of what people attach to a chatbot is a zip container — every
+  `.docx`, `.xlsx`, `.pptx`, `.odt`, `.epub` and `.jar` — shipped by a 2026 ChatGPT export under an
+  opaque `file-<id>.dat`. So somebody's CV was replaced by the XML inside it, the attachment the
+  conversation pointed at vanished, and their document's internals were merged into the export
+  root. A part archive is now recognised by being presented as one, `.zip`, **and** by its magic:
+  packaging is opened, content stays shut. Found by adversarial review of this branch, which
+  reproduced it.
+- **ChatGPT: a manifest entry resolves to every file with that name, not the first.** Now that part
+  archives merge into one root, a vendor numbering shards per part rather than globally ships a
+  `conversations-000.json` in each — and taking the first is how the other part's conversations
+  disappear without a warning.
+- **Gemini: derived ids stay unique within a document.** An id is a hash of `time` and `title`, and
+  a record with no `time` hashes on its title alone, so the same short question asked twice
+  collided — producing two conversations with one id, and duplicate message ids, in violation of
+  the specification and of the key consumers are told to use. The later one is disambiguated and
+  reported, because a suffixed id is exactly the one that will not line up with the next export.
+- **Gemini: a conversation's times come from the records that have them.** A row with no `time`
+  sorts to the front, so reading the bounds off position blanked the start of a conversation that
+  was perfectly well timestamped and reported it as having no timestamps at all.
+- **Gemini: `missing_timestamps` is `info`, as it is for every other vendor here**, and fires only
+  when no record in a conversation carries a time. A row that never had a timestamp lost nothing.
+- **The HTML-download advice survives a locale.** It keyed off the ASCII word `activity` in the
+  path — but everything below Takeout's wrapper folder is translated, so the message reached only
+  the English-locale users least likely to need it, and everyone else still paid the second export
+  request it exists to prevent.
+
+### Changed
+
+- **SPEC: a capture that records its own branch graph must not warn `branches_unavailable`.** As
+  first written, the rule required the warning from every capture. A client's local history can
+  see every alternative — Claude Code's does — and a producer claiming it could not would teach
+  consumers to ignore the warning where it is true. The test is now the source, not the method.
+- **Breaking: `Detection.platform` and `Detection.variant` are `Cow<'static, str>`**, and
+  `Adapter::platform` / `Adapter::variant` return `&str` rather than `&'static str`. An external
+  adapter with a configured platform name could not otherwise produce one without leaking it. Code
+  comparing `d.platform == "chatgpt"` is unaffected; code passing `d.platform` where a `&str` is
+  expected needs `&d.platform`. Cheap now, expensive after 1.0.
+- **The decompression budget is shared across a whole read** rather than granted afresh to each
+  archive, since several archives handed over together are one export and the budget is a statement
+  about memory. An entry that would take a read past it now names itself in the error, because with
+  parts inside parts "the archive" is ambiguous.
+- **`homepage` and `documentation` on the crate.** Both were empty on crates.io, which reads as a
+  project with nowhere to go.
+
 ## 0.3.0 — 2026-08-27
 
 ### Added

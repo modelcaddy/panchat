@@ -95,6 +95,47 @@ file.
 
 ---
 
+## Delivery in parts · reported 2026 — an archive of archives
+
+**Not observed here.** Everything in this section comes from reports and from other people's
+parsers, and it is written down so that the next person holding such an export can confirm or
+correct it. If you have one, the [format-drift issue](https://github.com/modelcaddy/panchat/issues/5)
+asks for `--inspect` output and a file listing — never the export.
+
+A large enough account does not receive one archive. The download is reported to be a zip
+containing further zips, along the lines of:
+
+```text
+Conversations__<something>-part-000.zip … part-00N.zip     the shards and their side-cars
+Files__<something>-files-000.zip … files-00N.zip           the attachment bytes
+```
+
+**This is a change of delivery, not of shape.** What comes out of the parts is the v2 layout
+already described above — a manifest, numbered shards, an asset-name map, `file-<id>.dat` bytes —
+so an export delivered this way is still `official_export_v2`, `variant_version: 2`. A consumer
+asking "does this export ship its attachments?" gets the same answer either way, which is what
+that number is for.
+
+**What the reader does.** One level of nesting is followed, and exactly one. The parts are opened
+and their contents merged as though every part had been unpacked into one folder, because that is
+the layout the adapter is written against and what `ContentPart::Attachment.path` has to mean.
+Whether to go looking inside at all is decided by shape, never by a filename: an archive that
+already yielded a JSON array holds its payload here and is left alone, which is what keeps a zip
+the *user* once uploaded — and 2026 exports ship the bytes of those — from being opened and
+sprayed across the export.
+
+**What it cannot do yet.** Reading a part means holding that part's bytes in memory, so a `Files__`
+part of several gigabytes will take the whole read past the 2 GiB budget and stop with an error
+naming the part. That is a real limit for exactly the accounts this section is about. Listing an
+inner archive's entries without materialising it needs the streaming work in
+[#9](https://github.com/modelcaddy/panchat/issues/9); until then the error tells the user to unpack
+and pass the folder, which works.
+
+**Also reported, and not handled:** archives past 4 GiB written without ZIP64, which some readers
+refuse outright. Nothing here works around that.
+
+---
+
 ## v1 · before 2026 — single-file export
 
 **Layout:** `conversations.json`, `user.json`, `message_feedback.json`, `model_comparisons.json`,

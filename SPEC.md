@@ -164,6 +164,15 @@ the alternatives could not be seen. Producers using a capture method therefore
 **MUST** emit a `branches_unavailable` warning, so the difference is on the
 record rather than inferred.
 
+The exception is a capture whose source records its own branch graph. A client's
+local history can — Claude Code's session store keeps every node with its parent,
+including every rewind — and such a producer **MUST NOT** emit
+`branches_unavailable`, because the alternatives were visible and are in the
+document. The warning exists to say "could not see", and a producer that says it
+when it could would teach consumers to ignore it where it is true. The test is the
+source, not the method: a producer **MUST** emit the warning whenever what it read
+could not show an alternative branch.
+
 `method` is a free string like `platform`. `export` and `capture` are defined;
 consumers **MUST NOT** reject others. Absent `method` **SHOULD** be treated as
 the weaker guarantee — assume branches may be missing.

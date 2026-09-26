@@ -3,11 +3,12 @@
 pub mod adapters;
 #[cfg(feature = "zip")]
 pub mod archive;
+pub mod capture;
 pub mod export;
 pub mod ir;
 pub mod warning;
 
-pub use adapters::{Adapter, Detection, ExportFile};
+pub use adapters::{Adapter, Detection, ExportFile, Registry};
 pub use ir::{
     Artifact, ContentPart, Conversation, Document, Message, Method, ProjectRef, Role, Source,
     FORMAT_VERSION, SCHEMA_URL,
@@ -48,6 +49,12 @@ pub enum Error {
 /// # }
 /// ```
 pub fn normalize(files: &[ExportFile]) -> Result<Document, Error> {
+    normalize_with(&Registry::builtin(), files)
+}
+
+/// [`normalize`], choosing among a caller's adapters rather than the built-in
+/// ones. [`Registry::normalize`] is the same thing reached from the other end.
+pub fn normalize_with(registry: &Registry, files: &[ExportFile]) -> Result<Document, Error> {
     // An archive handed in whole is expanded here rather than at the filesystem
     // boundary, so a caller that loaded the bytes itself — over HTTP, out of a
     // database, from a browser upload — gets the same behaviour as one that
@@ -63,7 +70,7 @@ pub fn normalize(files: &[ExportFile]) -> Result<Document, Error> {
     #[cfg(feature = "zip")]
     let files: &[ExportFile] = expanded.as_deref().unwrap_or(files);
 
-    let (adapter, detection) = adapters::detect(files).ok_or_else(|| {
+    let (adapter, detection) = registry.detect(files).ok_or_else(|| {
         let err = unrecognized(files);
         // The user passed an archive, so the error has to name the archive.
         // After expansion the failing files are entries inside it, and an error
@@ -105,6 +112,28 @@ fn unrecognized(files: &[ExportFile]) -> Error {
             zip.path
         ));
     }
+    // The one mistake that costs a second export: a download taken as a
+    // rendering of itself. Takeout asks for a format before it builds anything
+    // and defaults to HTML, and the choice is not obviously load-bearing at the
+    // time it is made. Named only when there is no JSON here to have parsed, so
+    // an export that ships a rendering alongside its data — ChatGPT's does — is
+    // unaffected.
+    let no_json = !files
+        .iter()
+        .any(|f| f.loaded && f.lower_path().ends_with(".json"));
+    if no_json {
+        if let Some(html) = files.iter().find(|f| is_html(&f.path)) {
+            let takeout = files.iter().any(|f| looks_like_takeout(&f.path));
+            let advice = match takeout {
+                true => "Request it again from takeout.google.com with the format set to JSON",
+                false => "Pass the export's JSON file instead",
+            };
+            return Error::NotRecognized(format!(
+                "{} is a rendering of a conversation rather than the data behind it. {advice}",
+                html.path
+            ));
+        }
+    }
     if files.iter().all(|f| !f.loaded) {
         return Error::NotRecognized(format!(
             "{} file(s), none of them readable as an export",
@@ -122,6 +151,21 @@ fn unrecognized(files: &[ExportFile]) -> Error {
     ))
 }
 
+fn is_html(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".html") || lower.ends_with(".htm")
+}
+
+/// Whether this path looks like it came out of Google Takeout.
+///
+/// Only the wrapper folder is tested, and only in English, because everything
+/// below it is localized — a Greek download names neither the activity
+/// directory nor the file in a way this could match. Getting it wrong costs the
+/// user one sentence of advice, not the error itself.
+fn looks_like_takeout(path: &str) -> bool {
+    path.to_ascii_lowercase().starts_with("takeout/")
+}
+
 /// Local file header, or the end-of-central-directory record of an empty
 /// archive.
 pub(crate) fn is_zip(bytes: &[u8]) -> bool {
@@ -130,7 +174,7 @@ pub(crate) fn is_zip(bytes: &[u8]) -> bool {
 
 /// Which adapter would handle these files, without parsing them.
 pub fn detect(files: &[ExportFile]) -> Option<Detection> {
-    adapters::detect(files).map(|(_, d)| d)
+    Registry::builtin().detect(files).map(|(_, d)| d)
 }
 
 /// Read a file or a directory of files into memory.
@@ -168,7 +212,72 @@ pub fn read_path(path: impl AsRef<Path>) -> Result<Vec<ExportFile>, Error> {
 
     let mut out = Vec::new();
     collect_dir(path, path, &mut out)?;
+    #[cfg(feature = "zip")]
+    let out = expand_directory_archives(path, out)?;
     Ok(out)
+}
+
+/// A folder whose export is still inside the archives sitting in it.
+///
+/// Google Takeout splits a large account across numbered downloads, and what
+/// somebody does with those is put them in one folder. Every archive is a blob
+/// as far as the walk above is concerned — a `.zip` is not a structured file —
+/// so without this the folder reads as several unopenable files and the user is
+/// told their download is unrecognisable, which is the same wrong answer a zip
+/// of zips used to get.
+///
+/// The rule is the one the archive reader already uses one level down: only
+/// when nothing in the folder yielded a JSON array is the payload assumed to be
+/// inside the archives. A folder holding an unpacked export *and* a zip is left
+/// exactly as it was.
+#[cfg(feature = "zip")]
+fn expand_directory_archives(
+    root: &Path,
+    files: Vec<ExportFile>,
+) -> Result<Vec<ExportFile>, Error> {
+    if archive::holds_a_json_array(&files) {
+        return Ok(files);
+    }
+    // One budget for the folder: several downloads of one account are one
+    // export, and the budget is a claim about memory rather than about files.
+    let mut budget = archive::LOAD_BUDGET;
+    let mut out = Vec::with_capacity(files.len());
+    for f in files {
+        let full = root.join(&f.path);
+        let is_archive =
+            f.path.to_ascii_lowercase().ends_with(".zip") && starts_with_zip_magic(&full);
+        if !f.loaded && is_archive {
+            out.extend(
+                archive::read_zip_with(&full, &mut budget).map_err(|e| match e {
+                    Error::Malformed(detail) => {
+                        Error::Malformed(format!("{} is a zip archive: {detail}", f.path))
+                    }
+                    other => other,
+                })?,
+            );
+        } else {
+            out.push(f);
+        }
+    }
+    Ok(out)
+}
+
+/// Whether the file on disk really is an archive, without reading it.
+///
+/// Paired with an extension test by every caller, and deliberately so: zip
+/// magic alone is true of every `.docx`, `.xlsx` and `.epub` somebody ever
+/// attached to a conversation, and those are content rather than packaging.
+#[cfg(feature = "zip")]
+fn starts_with_zip_magic(path: &Path) -> bool {
+    use std::io::Read;
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut head = [0u8; 4];
+    match file.read_exact(&mut head) {
+        Ok(()) => is_zip(&head),
+        Err(_) => false,
+    }
 }
 
 /// Extensions worth reading. Every vendor export we know states its structure

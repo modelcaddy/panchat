@@ -7,9 +7,16 @@ edition = "2021"
 license = "Apache-2.0"
 description = "Read AI chat exports from any vendor into one representation, with the losses named."
 repository = "https://github.com/modelcaddy/panchat"
+# crates.io shows these as links on the crate page, and an empty one reads as a
+# project with nowhere to go. The homepage is the README rendered by Pages,
+# which is also where the JSON Schema is served from.
+homepage = "https://modelcaddy.github.io/panchat/"
+documentation = "https://docs.rs/panchat"
 readme = "README.md"
 keywords = ["chatgpt", "claude", "transcript", "export", "conversation"]
 categories = ["parser-implementations", "data-structures"]
+# The Python binding is its own crate and ships to PyPI, not inside this one.
+exclude = ["bindings/"]
 
 # Its own workspace: the crate is also vendored inside a larger tree, and must
 # not inherit that tree's workspace settings.

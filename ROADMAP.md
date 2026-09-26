@@ -30,31 +30,40 @@ Three facts from outside the repository shape the order:
 
 ## Now
 
-The next release. Small, and each item removes a reason not to use the library.
+Done, unreleased, and waiting on the one thing this repository cannot supply itself.
 
-1. [#13](https://github.com/modelcaddy/panchat/issues/13) — Repository hygiene: `NOTICE` and
-   trademark policy, crates.io metadata, a response-time note in CONTRIBUTING.
-2. [#5](https://github.com/modelcaddy/panchat/issues/5) — ChatGPT large-account exports arrive as
-   a zip of zips. Expand one bounded level, number the generation, log it. Needs a real export to
-   confirm; `--inspect` output and an `unzip -l` listing are enough.
-3. [#6](https://github.com/modelcaddy/panchat/issues/6) — Gemini adapter, from Google Takeout. The
-   most-asked-for platform and the clearest lossiness story: it is an activity log, not a chat
-   export. Needs the record shape from someone who has one.
+1. ~~[#13](https://github.com/modelcaddy/panchat/issues/13) — repository hygiene.~~ Done, with one
+   change of plan: there is deliberately **no `NOTICE` file**. Apache-2.0 section 6 makes
+   reproducing `NOTICE` content an express exception to the trademark non-grant, so a name defended
+   there would be a name licensed away. [TRADEMARK.md](TRADEMARK.md) carries it instead, under
+   section 4(c).
+2. ~~[#5](https://github.com/modelcaddy/panchat/issues/5) — a zip of zips.~~ One bounded level of
+   nesting is followed, decided by shape rather than by filename. **Still open on evidence:** the
+   layout is reported rather than observed, and a multi-gigabyte attachment part still exceeds the
+   read budget until streaming lands.
+3. ~~[#6](https://github.com/modelcaddy/panchat/issues/6) — Gemini, from Google Takeout.~~ Shipped,
+   and built without anyone here ever holding a Gemini export — it is reconstructed from twenty
+   other parsers, and [its format log](docs/formats/gemini.md) lists six things still unconfirmed.
+
+**What is blocking all three is the same thing: nobody here has the export.** If you have a large
+ChatGPT download or any Gemini Takeout, the `--inspect` output and a file listing would move more
+than any amount of further code. Never the export itself.
 
 ## Next
 
 The release after, where the library becomes usable by people who do not write Rust.
 
-4. [#7](https://github.com/modelcaddy/panchat/issues/7) — Python binding, `pip install panchat`,
-   wheels from CI. The single item most likely to decide whether anyone else uses this.
-5. [#8](https://github.com/modelcaddy/panchat/issues/8) — Open the adapter registry so an adapter
-   can be maintained outside this repository. Includes the `Detection` field change, which is
-   cheap now and expensive after 1.0.
+4. ~~[#7](https://github.com/modelcaddy/panchat/issues/7) — Python binding.~~ Built, tested in CI,
+   wheels on tag. Waiting on one PyPI setting (trusted publisher) before the first release.
+5. ~~[#8](https://github.com/modelcaddy/panchat/issues/8) — open the adapter registry.~~ Done:
+   `Registry::builtin().with(adapter)`, with the `Detection` field change made while it is cheap.
 6. [#9](https://github.com/modelcaddy/panchat/issues/9) — Stream large exports. Memory bounded by
    the largest conversation, not the file.
-7. [#10](https://github.com/modelcaddy/panchat/issues/10) — A capture producer. The specification
-   defines `method: capture` and requires `branches_unavailable` from it, and nothing in the tree
-   emits either. Prove the rule here before a third party gets it wrong alone.
+7. [#10](https://github.com/modelcaddy/panchat/issues/10) — A capture producer. **Half done:**
+   `capture::Capture` makes the rule hold by construction, and proving it found the schema had
+   already lost both `method` and the warning code. The first real producer is Claude Code's
+   session history — which turned out to record its own branch graph, and so forced SPEC to say
+   when a capture must *not* claim blindness.
 
 ## Later
 
