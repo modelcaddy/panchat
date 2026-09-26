@@ -15,6 +15,18 @@ cost us, is recorded per source:
 
 ### Added
 
+- **A Python binding, `pip install panchat`.** The people who hold chat dumps and want to do
+  something with them mostly work in Python, and a Rust crate is invisible to them. Documents come
+  back as plain dicts and lists shaped exactly as the JSON Schema describes — no wrapper classes,
+  because the schema is the API and a second type system would drift from it; a document read in
+  Python is byte for byte the one the CLI prints, `x-` keys and `raw` included. `load`,
+  `load_bytes` (an upload or a zip already in memory), `detect`, `render`, and the three helpers
+  every consumer ends up writing — `active_messages`, `off_path_messages`, `text`. Parsing releases
+  the GIL. Typed exceptions: `NotRecognized`, `MalformedExport`, both `PanchatError`. One abi3
+  wheel per platform covers Python 3.9 onward; CI builds and tests the binding on every commit, and
+  a version tag builds wheels for Linux, macOS and Windows and publishes through PyPI trusted
+  publishing. Lives in `bindings/python`, its own crate, so the library never gains a pyo3
+  dependency. Closes #7.
 - **Claude Code's local session history** (`~/.claude/projects/`), the first source read as a
   *capture* — a client's own record rather than a vendor's export — and the first built from
   observed structure rather than reconstructed: 171 real sessions and 139 subagent transcripts,

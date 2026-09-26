@@ -22,6 +22,17 @@ for w in &doc.warnings {
 # Ok::<(), panchat::Error>(())
 ```
 
+From Python — `pip install panchat`, plain dicts shaped as the schema describes
+([more](bindings/python/README.md)):
+
+```python
+import panchat
+doc = panchat.load("chatgpt-export.zip")
+for c in doc["conversations"]:
+    for m in panchat.active_messages(c):
+        print(m["role"], panchat.text(m))
+```
+
 Or without writing any code:
 
 ```text

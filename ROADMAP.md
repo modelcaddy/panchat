@@ -53,8 +53,8 @@ than any amount of further code. Never the export itself.
 
 The release after, where the library becomes usable by people who do not write Rust.
 
-4. [#7](https://github.com/modelcaddy/panchat/issues/7) — Python binding, `pip install panchat`,
-   wheels from CI. The single item most likely to decide whether anyone else uses this.
+4. ~~[#7](https://github.com/modelcaddy/panchat/issues/7) — Python binding.~~ Built, tested in CI,
+   wheels on tag. Waiting on one PyPI setting (trusted publisher) before the first release.
 5. ~~[#8](https://github.com/modelcaddy/panchat/issues/8) — open the adapter registry.~~ Done:
    `Registry::builtin().with(adapter)`, with the `Detection` field change made while it is cheap.
 6. [#9](https://github.com/modelcaddy/panchat/issues/9) — Stream large exports. Memory bounded by

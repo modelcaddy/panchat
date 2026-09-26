@@ -15,6 +15,8 @@ documentation = "https://docs.rs/panchat"
 readme = "README.md"
 keywords = ["chatgpt", "claude", "transcript", "export", "conversation"]
 categories = ["parser-implementations", "data-structures"]
+# The Python binding is its own crate and ships to PyPI, not inside this one.
+exclude = ["bindings/"]
 
 # Its own workspace: the crate is also vendored inside a larger tree, and must
 # not inherit that tree's workspace settings.
