@@ -1,0 +1,17 @@
+[
+  {
+    "header": "Search",
+    "title": "Searched for something invented",
+    "titleUrl": "https://www.google.com/search?q=something+invented",
+    "time": "2026-07-20T15:15:21.568Z",
+    "products": ["Search"]
+  },
+  {
+    "header": "YouTube",
+    "title": "Watched a video that does not exist",
+    "titleUrl": "https://www.youtube.com/watch?v=invented",
+    "time": "2026-07-20T15:10:00.000Z",
+    "products": ["YouTube"],
+    "subtitles": [{ "name": "An invented channel" }]
+  }
+]

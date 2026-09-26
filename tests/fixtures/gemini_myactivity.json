@@ -1,0 +1,53 @@
+[
+  {
+    "header": "Gemini Apps",
+    "title": "Prompted And what about the second half?",
+    "titleUrl": "https://gemini.google.com/app/c/invented-thread-1?hl=en",
+    "time": "2026-07-20T15:20:00.100Z",
+    "products": ["Gemini Apps"],
+    "activityControls": ["Gemini Apps Activity"],
+    "safeHtmlItem": [
+      { "html": "<p>The second half is <b>likewise invented</b>.</p>" }
+    ]
+  },
+  {
+    "header": "Gemini Apps",
+    "title": "Prompted Explain the first half of the made-up thing",
+    "titleUrl": "https://gemini.google.com/app/c/invented-thread-1",
+    "time": "2026-07-20T15:15:21.568Z",
+    "products": ["Gemini Apps"],
+    "activityControls": ["Gemini Apps Activity"],
+    "safeHtmlItem": [
+      { "html": "<p>The first half does not exist.</p>" },
+      { "html": "<ul><li>Nor does this list item.</li></ul>" }
+    ],
+    "attachedFiles": [{ "name": "invented-notes.pdf" }]
+  },
+  {
+    "header": "Gemini Apps",
+    "title": "Created Gemini Canvas titled a fictional canvas",
+    "time": "2026-07-19T09:00:00.000Z",
+    "products": ["Gemini Apps"]
+  },
+  {
+    "header": "Gemini Apps",
+    "title": "Selected preferred draft",
+    "time": "2026-07-19T08:59:00.000Z",
+    "products": ["Gemini Apps"]
+  },
+  {
+    "header": "Gemini アプリ",
+    "title": "送信したメッセージ: これは作り話です",
+    "titleUrl": null,
+    "time": "2026-07-18T11:02:03.000Z",
+    "products": ["Gemini アプリ"],
+    "activityControls": ["Gemini アプリ アクティビティ"],
+    "safeHtmlItem": [{ "html": "<p>これも作り話です。</p>" }]
+  },
+  {
+    "header": "Gemini Apps",
+    "title": "Prompted A question whose answer Google did not keep",
+    "time": "2026-07-17T07:00:00.000Z",
+    "products": ["Gemini Apps"]
+  }
+]
